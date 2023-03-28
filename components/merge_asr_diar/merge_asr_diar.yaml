@@ -1,0 +1,37 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
+type: command
+
+# General information about the component
+name: merge_asr_diar
+display_name: Merge ASR+MSDD
+description: A template component to combine ASR and diarizer outputs.
+tags:
+  author: IA-Cognitive
+
+# Inputs and outputs
+inputs:
+  input_asr_path:
+    type: uri_folder
+    optional: false
+  input_diarizer_path:
+    type: uri_folder
+    optional: false
+outputs:
+  output_path:
+    type: uri_folder
+
+# The source code path of it's defined in the code section and when the
+# component is run in cloud, all files from that path will be uploaded
+# as the snapshot of this component
+code: ./
+
+# The environment section contains a docker image and a conda yaml file.
+# The source file is in the sample repository.
+environment:
+  conda_file: ./conda.yaml
+  image: mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04
+compute: azureml:cpu-cluster
+
+# The command section specifies the command to execute while running
+# this component
+command: python ./main.py --input_asr_path ${{inputs.input_asr_path}} --input_diarizer_path ${{inputs.input_diarizer_path}} --output_path ${{outputs.output_path}}

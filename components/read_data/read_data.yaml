@@ -1,0 +1,45 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
+type: command
+
+# General information about the component
+name: read_data
+display_name: Read data
+description: A template component to fetch blobs from a container, by agreeing with a regex expression.
+tags:
+  author: IA-Cognitive
+
+# Inputs and outputs
+inputs:
+  #file_id:
+  #  type: uri_file
+  #  path: https://staceu2exefd04.blob.core.windows.net/ms-ner-data/dataset_ms_ner_task_latest.json
+  #  optional: false
+  storage_id:
+    type: string
+    optional: false
+  container_id:
+    type: string
+    optional: false
+  regex_pattern:
+    type: string
+    default: '(.*?)\.wav'
+    optional: true
+outputs:
+  output_path:
+    type: uri_folder
+
+# The source code path of it's defined in the code section and when the
+# component is run in cloud, all files from that path will be uploaded
+# as the snapshot of this component
+code: ./
+
+# The environment section contains a docker image and a conda yaml file.
+# The source file is in the sample repository.
+environment:
+  conda_file: ./conda.yaml
+  image: mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04
+compute: azureml:cpu-cluster
+
+# The command section specifies the command to execute while running
+# this component
+command: python ./main.py --storage_id ${{inputs.storage_id}} --container_id ${{inputs.container_id}} $[[--regex_pattern '${{inputs.regex_pattern}}']] --output_path ${{outputs.output_path}}

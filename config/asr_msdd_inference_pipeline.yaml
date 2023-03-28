@@ -1,0 +1,19 @@
+azure:
+  subscription_id : 'ea34c2bd-5f3d-41ce-a246-5924bd586ecf'
+  resource_group : 'rsgreu2exefd01'
+  aml_workspace_name : 'mlearningeu2exefd01'
+  project_name : 'ASR-MSDD'
+  computing:
+    cpu_cluster_aml_id : 'cpu-cluster'
+    gpu_cluster_aml_id : 'gpu-cluster'
+  experiment_name : 'asr-msdd-inference'
+data:
+  storage_id : 'staceu2exefd04'
+  container_id : 'audit-jean'
+  regex_pattern : '(.*?)\.wav'
+inference:
+  whisper_model_name: 'large-v2'
+  vad_threshold: 0.35
+  no_speech_threshold: 0.5
+  language_code: 'es'
+  event_type: 'telephonic'
