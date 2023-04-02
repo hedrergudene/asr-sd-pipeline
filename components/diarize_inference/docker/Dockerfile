@@ -1,9 +1,9 @@
 # Base image (check CUDA version is the same as PyTorch one)
-FROM pytorch/pytorch:1.13.1-cuda11.6-cudnn8-runtime
+FROM nvcr.io/nvidia/nemo:23.01
 
 # Install pip dependencies
-RUN pip install 'nemo_toolkit[asr]==1.15.0' \
-                'omegaconf==2.3.0' \
+RUN apt-get update && apt-get install -y libsndfile1 ffmpeg
+RUN pip install 'omegaconf==2.2.3' \
                 'pandas==1.3.5' \
                 'librosa==0.10.0.post2' \
-                'soundfile==0.12.1'
+                'fire==0.5.0'

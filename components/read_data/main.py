@@ -43,16 +43,14 @@ def main(
     # Iterate through blobs
     annot_list = []
     for blob in blob_list:
-        _, extension = os.path.splitext(blob.name)
         # If name does not match criteria
         if len(regex_fn(blob.name))==0:
             continue
         else:
-            filename = regex_fn(blob.name)[0]
-            filename, extension = os.path.splitext(filename)
+            filename, extension = os.path.splitext(blob.name)
             log.info(f"Processing filename {filename}:")
             #elem = eval(container_client.download_blob(blob.name).readall())
-            annot_list.append(f"https://{storage_id}.blob.core.windows.net/{container_id}/{filename}.{extension}")
+            annot_list.append(f"https://{storage_id}.blob.core.windows.net/{container_id}/{filename}{extension}")
     # If no files were found, stop the script
     if len(annot_list)==0:
         log.error("No annotations following the introduced criteria were found.")

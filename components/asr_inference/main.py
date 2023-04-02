@@ -48,9 +48,12 @@ def main(
     Path(output_path).mkdir(parents=True, exist_ok=True)
     # Fetch input paths from previous component
     input_filepath = get_file(input_path)
-    pathdirs = pd.read_csv(input_filepath)['paths'].values
+    df = pd.read_csv(input_filepath, index_col=[0])
+    log.info(f"Dataframe:\n{df.head()}")
+    pathdirs = df['paths'].values
     # Setup
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    log.info(f"Device: {device}")
     whisper_model = stable_whisper.load_model(whisper_model_name)
     alignment_model, metadata = whisperx.load_align_model(
         language_code=language_code, device=device
@@ -59,6 +62,7 @@ def main(
     # Loop
     for pathdir in pathdirs:
         filename = pathdir.split('/')[-1].split('.')[0]
+        log.info(f"Processing file: {pathdir}")
         # Transcription
         result = whisper_model.transcribe(
             pathdir,

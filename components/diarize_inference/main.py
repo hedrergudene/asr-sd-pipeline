@@ -93,8 +93,10 @@ def main(
     log.info(f"Inference loop:")
     for filepath in pathdirs:
         signal, sample_rate = librosa.load(filepath, sr=None) # load audio from storage
+        signal = librosa.resample(signal, orig_sr=sample_rate, target_sr=16000)
+        signal = librosa.to_mono(signal)
         filename = filepath.split('/')[-1].split('.')[0] # get id
-        soundfile.write(f'./input/{filename}.wav', signal, sample_rate, "PCM_24") # save in tmp path as 16kHz, mono
+        librosa.output.write_wav(f'./input/{filename}.wav', signal, 16000) # save in tmp path as 16kHz, mono
         create_msdd_config(f'./input/{filename}.wav') # adapt cfg
         msdd_model.diarize() # output lies in './nemo_output' folder
         process_NeMo_output(filename)

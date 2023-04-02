@@ -1,78 +1,32 @@
-# Towards industrial-level Conversational-AI solutions
+# Towards industrial-level Multi-Speaker Speech Recognition solutions
 
 ---
 ## Table of contents
 - [1. Introduction](#introduction)
 - [2. Description](#description)
-- [3. Training data](#training-data)
-- [4. Components](#components)
-- [5. IAM](#iam)
-- [6. Quickstart](#quickstart)
-- [7. Call for contributions](#call-for-contributions)
-- [8. License](#license)
+- [3. Components](#components)
+- [4. IAM](#iam)
+- [5. Quickstart](#quickstart)
+- [6. License](#license)
 ---
 
 
 ## Introduction
 
-An Azure Machine Learning (AML) pipeline is a workflow that can be run independently of a complete machine learning task. An AML pipeline helps <mark>standardize best practices for producing a machine learning model</mark>, enables the team to run at scale, and improves model building efficiency.
+In recent years, speech recognition technology has become ubiquitous in our daily lives, powering virtual assistants, smart home devices, and other voice-enabled applications. However, building a robust speech recognition system is a complex task that requires sophisticated algorithms and models to handle the challenges of different accents, background noise, and multiple speakers.
 
-The core of a machine learning pipeline is breaking an entire machine learning task into a multi-step workflow. Each step is a manageable component that can be individually developed, optimized, configured, and automated. The steps are connected through well-defined interfaces. The AML pipeline service automatically organizes all dependencies between the pipeline steps. This modular approach brings two key benefits:
-
-* Standardize the practice of machine learning operation (MLOps) and support scalable team collaboration.
-* Efficiency in training and cost reduction.
-
-In this use case, we provide an easy to adapt and scalable approach to implement a tabular ML solution.
+In this repository, we aim to provide a comprehensive overview of the latest advancements in speech recognition and speaker diarization using deep learning techniques. We will explore the underlying technologies, including neural networks and their variants, and provide code examples and tutorials to help developers and researchers get started with building their own speech recognition and speaker diarization systems by making minimal changes to the Azure Pipelines implementation provided.
 
 
 ## Description
 
-The following diagram shows a detailed structure of how a simple ML workflow looks like:
+Speech recognition is the task of automatically transcribing spoken language into text. It involves developing algorithms and models that can analyze audio recordings and identify the words and phrases spoken by a user. In recent years, deep learning models have shown great success in improving speech recognition accuracy, making it a hot topic in the field of machine learning.
 
-<img src="images/project-outlook.PNG"  width="100%" height="100%" style="display: block; margin: 0 auto">
+Autoregressive models such as [Whisper](https://openai.com/research/whisper) provide excepcional transcriptions when combined with some additional preprocessing features, that we have picked up from [this excellent repo](https://github.com/jianfch/stable-ts), being the quality of the timestamps returned for each audio segment rather poor. In this direction, phoneme-based speech recognition tools like [wav2vec2](https://ai.facebook.com/blog/wav2vec-20-learning-the-structure-of-speech-from-raw-audio/) handle timestamps perfectly, as these are finetuned to recognise the smallest unit of speech distinguishing one word from another. A technique that makes both ends meet is [forced alignment](https://linguistics.berkeley.edu/plab/guestwiki/index.php?title=Forced_alignment#:~:text=Forced%20alignment%20refers%20to%20the,automatically%20generate%20phone%20level%20segmentation.); a good introduction to this topic can be found [here](https://pytorch.org/audio/stable/tutorials/forced_alignment_tutorial.html), and our implementation relies on [whisperX repo](https://github.com/m-bain/whisperX).
 
-There are several components to be discussed in order to keep track of every step through the workflow:
+<img src="images/sphx_glr_forced_alignment_tutorial_005.png"  width="70%" height="70%" style="display: block; margin: 0 auto">
 
-1. Code is stored in a repository, and unit test should be performed every time a new change occurs.
-2. Data is stored in a container, and every time the training pipeline is triggered, it is fetched by a component to create an **`MLTable` checkpoint** (see next section).
-3. Model training and evaluation is performed using stratified K-Fold strategy, inside a **bayesian hyperparameter optimisation** procedure.
-4. Loss function, evaluation metrics and results are monitored using [**MLFlow**](https://mlflow.org/). Instead of using [hyperparameter tuning functionalities in AzureML](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-tune-hyperparameters), a low-level solution provided by [scikit-optimize](https://github.com/scikit-optimize/scikit-optimize) is recommended.
-5. A checkpoint in model registry is created with the best hyperparameter configuration, ready to be deployed.
-
-
-## Training data
-
-### Data Assets (`MLTable`)
-
-An ideal resource for storing, managing and distributing data are [Data Assets](https://learn.microsoft.com/en-us/azure/machine-learning/concept-data). These allow to:
-
-* Create an object that is robust to changes (for example, a column name changes): All consumers of the data must independently update their Python code. Other examples can involve type changes, added / removed columns, encoding change, etc.
-* The data size increases - If the data becomes too large for Pandas to process, all the consumers of the data will need to switch to a more scalable library (PySpark/Dask).
-
-Azure Machine Learning Tables allow the data asset creator to define the materialization blueprint in a single file. Then, consumers can then easily materialize the data into a data frame. The consumers can avoid the need to write their own Python parsing logic. The creator of the data asset defines an [`MLTable`](https://learn.microsoft.com/en-us/azure/machine-learning/reference-yaml-mltable) file.
-
-We recommend co-location of the `MLTable` file with the underlying data, for example:
-
-```
-  ├── <container-name>
-  │   ├── MLTable
-  │   ├── file_1.csv
-  .
-  .
-  .
-  │   ├── file_n.csv
-```
-
-Co-location of the `MLTable` file with the data ensures a self-contained artifact that stores all needed resources in that one folder, regardless of whether that folder is stored on your local drive, in your cloud store, or on a public http server. Plus, real-life environments are not static, therefore this practice ensures that datacheckpoints are always up to date.
-
-Since the `MLTable` will co-locate with the data, the paths defined in the `MLTable` file should be relative to the location of the `MLTable` file. In the `./setup` folder, you will find the `smoke_detection_iot.csv` file, which has been used for testing purposes.
-
-### Assumptions
-
-This use case is prepared for supervised learning problems, where the following assumptions are made over the data:
-
-* Dataset only contain numerical features; categorical ones must be preprocessed in advanced (see `call-for-contributions` section).
-* Preprocessing performed for features and target variable (if it is a regression scenario) is a normal standarisation. This might change depending on your specific domain, where other possible transformations are Tweedie and binary crossentropy losses for highly-concentrated distributions.
+Speaker diarization, on the other hand, is the process of separating multiple speakers in an audio recording and assigning each speaker to their respective segments. It involves analyzing the audio signal to identify the unique characteristics of each speaker, such as their voice, intonation, and speaking style. Speaker diarization is essential in applications such as call center analytics, meeting transcription, and language learning, where it is necessary to distinguish between different speakers in a conversation. In this direction, [Multi-scale systems](https://developer.nvidia.com/blog/dynamic-scale-weighting-through-multiscale-speaker-diarization/) have emerged as a feasible solution to overcome traditional problems attached to time window selection.
 
 
 ## Components
@@ -95,13 +49,7 @@ Each of the pipeline components is executed within an *AML* computing cluster. T
 In order to optimize the resources we use in each module of our process, the following virtual machines are recommended:
 
 * `cpu-cluster`: The default host is `STANDARD_DS11_v2`. In case four processing *cores* are needed, consider using `STANDARD_DS3_v2`, and for CPU-intensive *Machine Learning* training, it is recommended to choose `Standard_DC16ds_v3`.
-* `gpu-cluster`:
-  * For training on a single GPU, and in order to test solutions and proofs of concept, it is recommended to use (with small *batch* size) `Standard_NC24ads_A100_v4` because of its cheap price.
-  * For single GPU training on stable solutions and validated pipelines, it is preferable to use one like `Standard_NC16as_T4_v3` if the model does not require large memory capacity, or `Standard_NC24ads_A100_v4` for its processing power.
-  * For training on multiple GPUs, and in order to test solutions and proofs of concept, it is recommended to use (with small *batch* size) `Standard_NC12` due to its cheap price, when making Tesla K80 GPUs available.
-  * For training on multiple GPUs in stable solutions and validated pipelines, it is preferable to use one like `Standard_NC64as_T4_v3` (4GPUs, Tesla T4) if the model does not require large memory capacity, `Standard_NC48ads_A100_v4` (2GPUs, Tesla A100) for its good price-performance ratio, or `Standard_ND96amsr_A100_v4` (8GPUs, Tesla A100) for its extensive processing power.
-
-In the `./setup` folder, you will find a shell script (together with configuration files) to create CPU and GPU clusters.
+* `gpu-cluster`: Our recommendation is to use one like `Standard_NC16as_T4_v3` for its exceptional speed-cost tradeoff.
 
 
 ### Structure
@@ -161,19 +109,7 @@ AML computing clusters will use a service account to which we must assign a seri
 
 ## Quickstart
 
-Once the environment has been created, permissions for service account have been granted and you filled the configuration file with your own data, the fastest way to run AML pipelines is by opening a terminal and launching `azureml_pipeline.py` script, using as parameter the configuration file path.
-
-
-## Call for contributions
-
-Despite including and end-to-end solution to model design in AML, the following additional features are expected to be developed:
-
-- [X] Adapt `build_MLTable` function in pipeline job script to replicate Data Asset config file (done by @demstalferez).
-- [ ] Make preprocessing flexible enough to ingest categorical features, and either perform label or one-hot encoding.
-- [ ] `RAPIDS` integration to train ML models using GPU.
-- [ ] Inference endpoint creation.
-- [ ] User-friendly app development.
-- [ ] Live application by using a real IoT device.
+Once the environment has been created, permissions for service account have been granted and you filled the configuration file with your own data, the fastest way to run AML pipelines is by opening a terminal and launching `asr_msdd_inference_pipeline.py` script, using as parameter the configuration file path.
 
 
 ## License
