@@ -117,10 +117,10 @@ def main(
     output_path
 ):
     # Create output paths
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    Path('./input_asr').parent.mkdir(parents=True, exist_ok=True)
-    Path('./input_diarizer').parent.mkdir(parents=True, exist_ok=True)
-    Path('./output_transcriptions').parent.mkdir(parents=True, exist_ok=True)
+    Path(output_path).mkdir(parents=True, exist_ok=True)
+    Path('./input_asr').mkdir(parents=True, exist_ok=True)
+    Path('./input_diarizer').mkdir(parents=True, exist_ok=True)
+    Path('./output_transcriptions').mkdir(parents=True, exist_ok=True)
     # Fetch files
     os.system(f"unrar e {get_file(input_asr_path)} ./input_asr")
     os.system(f"unrar e {get_file(input_diarizer_path)} ./input_diarizer")

@@ -1,6 +1,9 @@
 # Requierments
 import logging as log
 import os
+from io import BytesIO
+from azure.storage.blob import BlobServiceClient
+from azure.identity import DefaultAzureCredential
 import pandas as pd
 import re
 import json
@@ -83,6 +86,14 @@ def main(
     # Fetch input paths from previous component
     input_filepath = get_file(input_path)
     pathdirs = pd.read_csv(input_filepath)['paths'].values
+    storage_id = re.findall('^https://(.*?).blob.core.windows.net/',pathdirs[0])[0]
+    container_id = re.findall(f'^https://{storage_id}.blob.core.windows.net/(.*?)/',pathdirs[0])[0]
+    # Get container client to get files, as librosa cannot fetch them directly
+    account_url = f"https://{storage_id}.blob.core.windows.net"
+    credential = DefaultAzureCredential()
+    credential.get_token("https://management.azure.com/.default")
+    blob_service_client = BlobServiceClient(account_url, credential=credential)
+    container_client = blob_service_client.get_container_client(container=container_id)
     # Read cfg
     log.info(f"Read NeMo MSDD configuration file:")
     msdd_cfg = OmegaConf.load(f'./input/ClusterDiarizer_{event_type}.yaml')
@@ -92,15 +103,17 @@ def main(
     msdd_model = NeuralDiarizer(cfg=msdd_cfg)
     log.info(f"Inference loop:")
     for filepath in pathdirs:
-        signal, sample_rate = librosa.load(filepath, sr=None) # load audio from storage
+        filename = re.findall(f'^https://{storage_id}.blob.core.windows.net/{container_id}/(.*?)$',filepath)[0]
+        filename, extension = os.path.splitext(filename)
+        signal, sample_rate = librosa.load(BytesIO(container_client.download_blob(f"{filename}{extension}").readall()), sr=None) # load audio from storage
         signal = librosa.resample(signal, orig_sr=sample_rate, target_sr=16000)
         signal = librosa.to_mono(signal)
         filename = filepath.split('/')[-1].split('.')[0] # get id
-        librosa.output.write_wav(f'./input/{filename}.wav', signal, 16000) # save in tmp path as 16kHz, mono
-        create_msdd_config(f'./input/{filename}.wav') # adapt cfg
+        librosa.output.write_wav(f'./input/{filename}{extension}', signal, 16000) # save in tmp path as 16kHz, mono
+        create_msdd_config(f'./input/{filename}{extension}') # adapt cfg
         msdd_model.diarize() # output lies in './nemo_output' folder
         process_NeMo_output(filename)
-        os.remove(f'./input/{filename}.wav') # remove audio
+        os.remove(f'./input/{filename}{extension}') # remove audio
     # Generate output
     os.system(f"rar a {os.path.join(output_path,'diars.rar')} ./nemo_output/pred_csv")
 

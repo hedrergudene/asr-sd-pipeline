@@ -16,4 +16,4 @@ inference:
   vad_threshold: 0.35
   no_speech_threshold: 0.5
   language_code: 'es' # en, fr, pt, ch,...
-  event_type: 'telephonic'
+  event_type: 'telephonic' #could also be 'meeting'
