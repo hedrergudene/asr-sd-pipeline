@@ -4,8 +4,8 @@ azure:
   aml_workspace_name : 'XXXXXX'
   project_name : 'ASR-MSDD'
   computing:
-    cpu_cluster_aml_id : 'XXXXXX'
-    gpu_cluster_aml_id : 'XXXXXX'
+    cpu_cluster_aml_id : 'cpu-cluster'
+    gpu_cluster_aml_id : 'gpu-cluster'
   experiment_name : 'asr-msdd-inference'
 data:
   storage_id : 'XXXXXX'
@@ -17,3 +17,4 @@ inference:
   no_speech_threshold: 0.5
   language_code: 'es' # en, fr, pt, ch,...
   event_type: 'telephonic' #could also be 'meeting'
+  word_ts_anchor_offset: 0.05

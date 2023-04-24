@@ -1,0 +1,11 @@
+$schema: https://azuremlschemas.azureedge.net/latest/amlCompute.schema.json
+name: cpu-cluster
+type: amlcompute
+size: STANDARD_DS11_v2 # In case 4 cores are needed, switch to STANDARD_DS3_v2. For large ML trainings in CPU, use Standard_D13_v2
+min_instances: 0
+max_instances: 4
+idle_time_before_scale_down: 120
+tier: dedicated
+ssh_public_access_enabled: false
+identity.type: system_assigned
+location: eastus2

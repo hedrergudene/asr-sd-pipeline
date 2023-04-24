@@ -18,6 +18,12 @@ inputs:
     enum: ['meeting', 'telephonic']
     default: 'telephonic'
     optional: true
+  word_ts_anchor_offset:
+    type: number
+    min: -0.05
+    max: 0.2
+    default: 0.05
+    optional: true
 outputs:
   output_path:
     type: uri_folder
@@ -44,4 +50,4 @@ resources:
 # this component
 # When the input is set as optional = true, you need use $[[]] to embrace
 # the command line with inputs.
-command: python ./main.py --input_path ${{inputs.input_path}} $[[--event_type ${{inputs.event_type}}]] --output_path ${{outputs.output_path}}
+command: python ./main.py --input_path ${{inputs.input_path}} $[[--event_type ${{inputs.event_type}}]] $[[--word_ts_anchor_offset ${{inputs.word_ts_anchor_offset}}]] --output_path ${{outputs.output_path}}

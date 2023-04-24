@@ -1,5 +1,6 @@
 # Requierments
 import logging as log
+import subprocess
 import os
 import pandas as pd
 import sys
@@ -33,6 +34,14 @@ def get_file(f):
             log.error(f"More than one file was found in directory: {','.join(files)}.")
             return (f"More than one file was found in directory: {','.join(files)}.", 500)
 
+# Helper function to get CUDA compute capability
+def get_cuda_compute():
+    output = subprocess.run(["nvidia-smi", "--query-gpu=compute_cap", "--format=csv"], 
+                            stdout=subprocess.PIPE, 
+                            text=True
+    )
+    return float(output.stdout.split('\n')[1])
+
 
 # Main method. Fire automatically allign method arguments with parse commands from console
 def main(
@@ -41,11 +50,15 @@ def main(
     vad_threshold,
     no_speech_threshold,
     language_code,
+    fp16,
     output_path
 ):
     # Create output path and auxiliary folders
     Path('./outputs').mkdir(parents=True, exist_ok=True)
     Path(output_path).mkdir(parents=True, exist_ok=True)
+    # Check cuda capabilities
+    if ((torch.cuda.is_available()) & (get_cuda_compute()<7.5)):
+        raise Exception(f"Nvidia CUDA compute capabilities are below 7.5 ({get_cuda_compute()}), minimum threshold for Turing tensor cores.")
     # Fetch input paths from previous component
     input_filepath = get_file(input_path)
     df = pd.read_csv(input_filepath, index_col=[0])
@@ -72,6 +85,7 @@ def main(
             #demucs=True,
             #demucs_output='sample.wav',
             no_speech_threshold=no_speech_threshold,
+            fp16=fp16,
             regroup=True
         )
         # Alignment

@@ -1,0 +1,11 @@
+$schema: https://azuremlschemas.azureedge.net/latest/amlCompute.schema.json
+name: gpu-cluster
+type: amlcompute
+size: Standard_NC16as_T4_v3 # (16 cores, 110 GB RAM, 352 GB disk)
+min_instances: 0
+max_instances: 4
+idle_time_before_scale_down: 120
+tier: low_priority
+ssh_public_access_enabled: false
+identity.type: system_assigned
+location: eastus2

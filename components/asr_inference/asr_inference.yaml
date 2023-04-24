@@ -33,6 +33,10 @@ inputs:
     type: string
     default: es
     optional: true
+  fp16:
+    type: boolean
+    default: True
+    optional: true
 outputs:
   output_path:
     type: uri_folder
@@ -59,4 +63,4 @@ resources:
 # this component
 # When the input is set as optional = true, you need use $[[]] to embrace
 # the command line with inputs.
-command: python ./main.py --input_path ${{inputs.input_path}} $[[--whisper_model_name ${{inputs.whisper_model_name}}]] $[[--vad_threshold ${{inputs.vad_threshold}}]] $[[--no_speech_threshold ${{inputs.no_speech_threshold}}]] $[[--language_code ${{inputs.language_code}}]] --output_path ${{outputs.output_path}}
+command: python ./main.py --input_path ${{inputs.input_path}} $[[--whisper_model_name ${{inputs.whisper_model_name}}]] $[[--vad_threshold ${{inputs.vad_threshold}}]] $[[--no_speech_threshold ${{inputs.no_speech_threshold}}]] $[[--language_code ${{inputs.language_code}}]] $[[--fp16 ${{inputs.fp16}}]] --output_path ${{outputs.output_path}}
