@@ -6,7 +6,8 @@ name: diarize_inference
 display_name: MSDD inference
 description: A template component to run inference on Multi-Scale Diarization Decoder model by Nvidia.
 tags:
-  author: IA-Cognitive
+  author: Antonio Zarauz Moreno
+  version: '1.0'
 
 # Inputs and outputs
 inputs:
@@ -17,6 +18,12 @@ inputs:
     type: string
     enum: ['meeting', 'telephonic']
     default: 'telephonic'
+    optional: true
+  max_num_speakers:
+    type: integer
+    default: 2
+    min: 1
+    max: 8
     optional: true
   word_ts_anchor_offset:
     type: number
@@ -50,4 +57,4 @@ resources:
 # this component
 # When the input is set as optional = true, you need use $[[]] to embrace
 # the command line with inputs.
-command: python ./main.py --input_path ${{inputs.input_path}} $[[--event_type ${{inputs.event_type}}]] $[[--word_ts_anchor_offset ${{inputs.word_ts_anchor_offset}}]] --output_path ${{outputs.output_path}}
+command: python ./main.py --input_path ${{inputs.input_path}} $[[--event_type ${{inputs.event_type}}]] $[[--max_num_speakers ${{inputs.max_num_speakers}}]] $[[--word_ts_anchor_offset ${{inputs.word_ts_anchor_offset}}]] --output_path ${{outputs.output_path}}

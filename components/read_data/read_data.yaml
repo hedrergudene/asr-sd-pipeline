@@ -6,7 +6,8 @@ name: read_data
 display_name: Read data
 description: A template component to fetch blobs from a container, by agreeing with a regex expression.
 tags:
-  author: IA-Cognitive
+  author: Antonio Zarauz Moreno
+  version: '1.0'
 
 # Inputs and outputs
 inputs:

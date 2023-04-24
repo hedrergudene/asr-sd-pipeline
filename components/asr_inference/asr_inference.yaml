@@ -6,7 +6,8 @@ name: asr_inference
 display_name: ASR inference
 description: A template component to run inference on Whisper with forcing alignment from Wav2Vec2.
 tags:
-  author: IA-Cognitive
+  author: Antonio Zarauz Moreno
+  version: '1.0'
 
 # Inputs and outputs
 inputs:

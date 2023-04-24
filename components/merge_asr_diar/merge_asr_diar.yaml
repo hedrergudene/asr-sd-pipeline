@@ -6,7 +6,8 @@ name: merge_asr_diar
 display_name: Merge ASR+MSDD
 description: A template component to combine ASR and diarizer outputs.
 tags:
-  author: IA-Cognitive
+  author: Antonio Zarauz Moreno
+  version: '1.0'
 
 # Inputs and outputs
 inputs:

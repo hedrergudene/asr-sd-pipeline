@@ -74,6 +74,7 @@ def main(
     input_path,
     input_transcriptions,
     event_type,
+    max_num_speakers,
     word_ts_anchor_offset,
     output_path
 ):
@@ -100,6 +101,7 @@ def main(
     # Read cfg
     log.info(f"Read NeMo MSDD configuration file:")
     msdd_cfg = OmegaConf.load(f'./input/diar_infer_{event_type}.yaml')
+    msdd_cfg.clustering.max_num_speakers = max_num_speakers
     create_msdd_config(f'./input/dummy_audio.wav') # initialise msdd cfg
     # NeMo MSDD
     log.info(f"Initialize NeMo MSDD diarization model:")
