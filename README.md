@@ -123,6 +123,7 @@ python asr_msdd_inference_pipeline.py --config_path ./config/asr_msdd_inference_
 Despite including and end-to-end solution to model design in AML, the following additional features are expected to be developed:
 
 - [X] Speed up diarization step by using ASR output.
+- [X] Include CTranslate2 engine in ASR components.
 - [ ] Improve preprocessing techniques to enhance diarization stability.
 - [ ] Make sentence alignment more sensitive to short texts.
 
