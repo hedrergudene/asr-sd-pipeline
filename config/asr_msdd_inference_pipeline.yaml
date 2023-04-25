@@ -17,4 +17,7 @@ inference:
   no_speech_threshold: 0.5
   language_code: 'es' # en, fr, pt, ch,...
   event_type: 'telephonic' #could also be 'meeting'
+  max_num_speakers: 3
   word_ts_anchor_offset: 0.05
+  max_words_in_sentence: 80
+  sentence_ending_punctuations: '.?!'

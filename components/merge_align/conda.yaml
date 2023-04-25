@@ -1,4 +1,4 @@
-name: read_data_conda_env
+name: merge_align_conda_env
 channels:
   - defaults
 dependencies:
@@ -10,6 +10,7 @@ dependencies:
     - azureml-defaults==1.47.0
     - azure-identity==1.12.0
     - azure-storage-blob==12.13.0
+    - deepmultilingualpunctuation==1.0.1
     - protobuf==3.20.0
     - pyyaml==5.4.1
     - fire==0.4.0

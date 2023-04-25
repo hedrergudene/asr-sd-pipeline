@@ -55,7 +55,7 @@ def main(
     read_data_comp = load_component(source="./components/read_data/read_data.yaml")
     asr_inference_comp = load_component(source="./components/asr_inference/asr_inference.yaml")
     diarize_inference_comp = load_component(source=f"./components/diarize_inference/diarize_inference.yaml")
-    merge_asr_diar_comp = load_component(source=f"./components/merge_asr_diar/merge_asr_diar.yaml")
+    merge_align_comp = load_component(source=f"./components/merge_align/merge_align.yaml")
     
     # Define a pipeline containing the previous nodes
     @pipeline(
@@ -83,14 +83,19 @@ def main(
         # MSDD
         diarize_inference_node = diarize_inference_comp(
             input_path=read_data_node.outputs.output_path,
+            input_transcriptions = asr_inference_node.outputs.output_path,
+            max_num_speakers = config_dct['inference']['max_num_speakers'],
+            word_ts_anchor_offset = config_dct['inference']['word_ts_anchor_offset'],
             event_type=config_dct['inference']['event_type']
         )
         diarize_inference_node.compute = config_dct['azure']['computing']['gpu_cluster_aml_id']
 
         # Merge
-        merge_asr_diar_node= merge_asr_diar_comp(
+        merge_align_node= merge_align_comp(
             input_asr_path=asr_inference_node.outputs.output_path,
-            input_diarizer_path=diarize_inference_node.outputs.output_path
+            input_diarizer_path=diarize_inference_node.outputs.output_path,
+            max_words_in_sentence = config_dct['inference']['max_words_in_sentence'],
+            sentence_ending_punctuations = config_dct['inference']['sentence_ending_punctuations']
         )
 
     

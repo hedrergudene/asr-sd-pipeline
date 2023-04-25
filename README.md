@@ -7,7 +7,8 @@
 - [3. Components](#components)
 - [4. IAM](#iam)
 - [5. Quickstart](#quickstart)
-- [6. License](#license)
+- [6. Call for contributions](#call-for-contributions)
+- [7. License](#license)
 ---
 
 
@@ -27,6 +28,8 @@ Autoregressive models such as [Whisper](https://openai.com/research/whisper) pro
 <img src="images/sphx_glr_forced_alignment_tutorial_005.png"  width="70%" height="70%" style="display: block; margin: 0 auto">
 
 Speaker diarization, on the other hand, is the process of separating multiple speakers in an audio recording and assigning each speaker to their respective segments. It involves analyzing the audio signal to identify the unique characteristics of each speaker, such as their voice, intonation, and speaking style. Speaker diarization is essential in applications such as call center analytics, meeting transcription, and language learning, where it is necessary to distinguish between different speakers in a conversation. In this direction, [Multi-scale systems](https://developer.nvidia.com/blog/dynamic-scale-weighting-through-multiscale-speaker-diarization/) have emerged as a feasible solution to overcome traditional problems attached to time window selection.
+
+Finally, in order to enhance natural language transcriptions quality and readability, a punctuation-based sentence alignment strategy has been implemented after 
 
 
 ## Components
@@ -49,7 +52,7 @@ Each of the pipeline components is executed within an *AML* computing cluster. T
 In order to optimize the resources we use in each module of our process, the following virtual machines are recommended:
 
 * `cpu-cluster`: The default host is `STANDARD_DS11_v2`. In case four processing *cores* are needed, consider using `STANDARD_DS3_v2`, and for CPU-intensive *Machine Learning* training, it is recommended to choose `Standard_DC16ds_v3`.
-* `gpu-cluster`: Our recommendation is to use one like `Standard_NC16as_T4_v3` for its exceptional speed-cost tradeoff.
+* `gpu-cluster`: Our recommendation is to use one like `Standard_NC16as_T4_v3` for its exceptional speed-cost tradeoff. Make sure you use a GPU with nvidia CUDA compute capabilities beyond 7.5, to make use of Turing tensor cores.
 
 
 ### Structure
@@ -109,7 +112,18 @@ AML computing clusters will use a service account to which we must assign a seri
 
 ## Quickstart
 
-Once the environment has been created, permissions for service account have been granted and you filled the configuration file with your own data, the fastest way to run AML pipelines is by opening a terminal and launching `asr_msdd_inference_pipeline.py` script, using as parameter the configuration file path.
+Once the environment has been created, permissions for service account have been granted and you filled the configuration file with your own data, the fastest way to run AML pipelines is by opening a terminal and running the provided script to start an AzureML job:
+
+```
+python asr_msdd_inference_pipeline.py --config_path ./config/asr_msdd_inference_pipeline.yaml
+```
+
+## Call for contributions
+
+Despite including and end-to-end solution to model design in AML, the following additional features are expected to be developed:
+
+- [X] Speed up diarization step by using ASR output.
+- [ ] Improve preprocessing techniques to enhance diarization stability.
 
 
 ## License
