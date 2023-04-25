@@ -24,6 +24,7 @@ def get_word_ts_anchor(s, e, option="mid"):
         return (s + e) / 2
     return s
 
+
 def get_words_speaker_mapping(wrd_ts, spk_ts, word_anchor_option="mid"):
     s, e, sp = spk_ts[0]
     wrd_pos, turn_idx = 0, 0
@@ -45,6 +46,7 @@ def get_words_speaker_mapping(wrd_ts, spk_ts, word_anchor_option="mid"):
             {"word": wrd, "start_time": ws, "end_time": we, "speaker": sp}
         )
     return wrd_spk_mapping
+
 
 def get_first_word_idx_of_sentence(word_idx, word_list, speaker_list, max_words, sentence_ending_punctuations):
     is_word_sentence_end = (
@@ -79,6 +81,7 @@ def get_last_word_idx_of_sentence(word_idx, word_list, max_words, sentence_endin
         if right_idx == len(word_list) - 1 or is_word_sentence_end(right_idx)
         else -1
     )
+
 
 def get_realigned_ws_mapping_with_punctuation(
     word_speaker_mapping, max_words_in_sentence, sentence_ending_punctuations
@@ -138,6 +141,7 @@ def get_realigned_ws_mapping_with_punctuation(
         k += 1
 
     return realigned_list
+
 
 def get_sentences_speaker_mapping(word_speaker_mapping, spk_ts):
     s, e, spk = spk_ts[0]

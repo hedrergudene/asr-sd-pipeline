@@ -2,8 +2,8 @@ $schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.jso
 type: command
 
 # General information about the component
-name: merge_asr_diar
-display_name: Merge ASR+MSDD
+name: merge_align
+display_name: Merge&Align
 description: A template component to combine ASR and diarizer outputs.
 tags:
   author: Antonio Zarauz Moreno
@@ -19,7 +19,7 @@ inputs:
     optional: false
   max_words_in_sentence:
     type: integer
-    default: 80
+    default: 40
     min: 10
     max: 1000
     optional: true

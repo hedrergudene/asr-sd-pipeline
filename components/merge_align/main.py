@@ -5,7 +5,6 @@ import json
 import os
 import sys
 from pathlib import Path
-import numpy as np
 import pandas as pd
 from src.utils import get_file, get_words_speaker_mapping, get_realigned_ws_mapping_with_punctuation, get_sentences_speaker_mapping
 from deepmultilingualpunctuation import PunctuationModel
