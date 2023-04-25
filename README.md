@@ -29,7 +29,7 @@ Autoregressive models such as [Whisper](https://openai.com/research/whisper) pro
 
 Speaker diarization, on the other hand, is the process of separating multiple speakers in an audio recording and assigning each speaker to their respective segments. It involves analyzing the audio signal to identify the unique characteristics of each speaker, such as their voice, intonation, and speaking style. Speaker diarization is essential in applications such as call center analytics, meeting transcription, and language learning, where it is necessary to distinguish between different speakers in a conversation. In this direction, [Multi-scale systems](https://developer.nvidia.com/blog/dynamic-scale-weighting-through-multiscale-speaker-diarization/) have emerged as a feasible solution to overcome traditional problems attached to time window selection.
 
-Finally, in order to enhance natural language transcriptions quality and readability, a punctuation-based sentence alignment strategy has been implemented after 
+Finally, in order to enhance natural language transcriptions quality and readability, a punctuation-based sentence alignment strategy has been implemented after both ASR and diarization steps.
 
 
 ## Components
@@ -124,6 +124,7 @@ Despite including and end-to-end solution to model design in AML, the following 
 
 - [X] Speed up diarization step by using ASR output.
 - [ ] Improve preprocessing techniques to enhance diarization stability.
+- [ ] Make sentence alignment more sensitive to short texts.
 
 
 ## License
