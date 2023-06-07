@@ -18,7 +18,7 @@ root.addHandler(handler)
 
 # Main method. Fire automatically allign method arguments with parse commands from console
 def main(
-    config_path:str='./config/asr_msdd_inference_pipeline.yaml'
+    config_path:str='./config/asr_msdd_inference_ctranslate2_pipeline.yaml'
 ):
 
     # Get credential token
@@ -73,10 +73,14 @@ def main(
         # ASR
         asr_inference_node = asr_inference_comp(
             input_path=read_data_node.outputs.output_path,
-            whisper_model_name=config_dct['inference']['whisper_model_name'],
-            vad_threshold=config_dct['inference']['vad_threshold'],
-            no_speech_threshold=config_dct['inference']['no_speech_threshold'],
-            language_code=config_dct['inference']['language_code']
+            whisper_model_name=config_dct['asr']['whisper_model_name'],
+            num_workers=config_dct['asr']['num_workers'],
+            beam_size=config_dct['asr']['beam_size'],
+            vad_threshold=config_dct['asr']['vad_threshold'],
+            min_speech_duration_ms=config_dct['asr']['min_speech_duration_ms'],
+            min_silence_duration_ms=config_dct['asr']['min_silence_duration_ms'],
+            language_code=config_dct['asr']['language_code'],
+            fp16=config_dct['asr']['fp16']
         )
         asr_inference_node.compute = config_dct['azure']['computing']['gpu_cluster_aml_id']
 
@@ -84,9 +88,9 @@ def main(
         diarize_inference_node = diarize_inference_comp(
             input_path=read_data_node.outputs.output_path,
             input_transcriptions = asr_inference_node.outputs.output_path,
-            max_num_speakers = config_dct['inference']['max_num_speakers'],
-            word_ts_anchor_offset = config_dct['inference']['word_ts_anchor_offset'],
-            event_type=config_dct['inference']['event_type']
+            max_num_speakers = config_dct['diarization']['max_num_speakers'],
+            word_ts_anchor_offset = config_dct['diarization']['word_ts_anchor_offset'],
+            event_type=config_dct['diarization']['event_type']
         )
         diarize_inference_node.compute = config_dct['azure']['computing']['gpu_cluster_aml_id']
 
@@ -94,8 +98,8 @@ def main(
         merge_align_node= merge_align_comp(
             input_asr_path=asr_inference_node.outputs.output_path,
             input_diarizer_path=diarize_inference_node.outputs.output_path,
-            max_words_in_sentence = config_dct['inference']['max_words_in_sentence'],
-            sentence_ending_punctuations = config_dct['inference']['sentence_ending_punctuations']
+            max_words_in_sentence = config_dct['align']['max_words_in_sentence'],
+            sentence_ending_punctuations = config_dct['align']['sentence_ending_punctuations']
         )
 
     

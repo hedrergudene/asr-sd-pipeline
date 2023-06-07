@@ -1,12 +1,13 @@
 # Requierments
 import logging as log
+import time
 import subprocess
 import os
 import pandas as pd
 import sys
 from pathlib import Path
 import torch
-import stable_whisper
+from faster_whisper import WhisperModel
 import whisperx
 import fire
 
@@ -47,8 +48,11 @@ def get_cuda_compute():
 def main(
     input_path,
     whisper_model_name,
+    num_workers,
+    beam_size,
     vad_threshold,
-    no_speech_threshold,
+    min_speech_duration_ms,
+    min_silence_duration_ms,
     language_code,
     fp16,
     output_path
@@ -67,7 +71,12 @@ def main(
     # Setup
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     log.info(f"Device: {device}")
-    whisper_model = stable_whisper.load_model(whisper_model_name)
+    whisper_model = WhisperModel(
+        whisper_model_name,
+        num_workers=num_workers,
+        device=device,
+        compute_type="float16" if fp16 else "int8_float16"
+    )
     alignment_model, metadata = whisperx.load_align_model(
         language_code=language_code, device=device
     )
@@ -77,27 +86,34 @@ def main(
         filename = pathdir.split('/')[-1].split('.')[0]
         log.info(f"Processing file: {pathdir}")
         # Transcription
-        result = whisper_model.transcribe(
-            pathdir,
+        transcription_time = time.time()
+        segments, _ = whisper_model.transcribe(
+            input_filepath,
+            beam_size=beam_size,
             language=language_code,
-            vad=True,
-            vad_threshold=vad_threshold,
-            #demucs=True,
-            #demucs_output='sample.wav',
-            no_speech_threshold=no_speech_threshold,
-            fp16=fp16,
-            regroup=True
+            vad_filter=True,
+            vad_parameters=dict(
+                threshold=vad_threshold,
+                min_speech_duration_ms=min_speech_duration_ms,
+                min_silence_duration_ms=min_silence_duration_ms
+            )
         )
+        transcription_time = time.time()-transcription_time
+        log.info(f"\tTranscription time: {transcription_time}")
         # Alignment
+        alignment_time = time.time()
         result_aligned = whisperx.align(
-            [{'start':x.start, 'end':x.end, 'text':x.text} for x in result.segments],
+            [{'start':x.start, 'end':x.end, 'text':x.text} for x in segments],
             alignment_model,
             metadata,
             pathdir,
             device
         )
+        alignment_time = time.time() - alignment_time
+        log.info(f"\tAlignment time: {alignment_time}")
         # Save file
         pd.DataFrame([{'start':x['start'], 'end':x['end'], 'text':x['text']} for x in result_aligned['word_segments']]).to_csv(os.path.join('./outputs', filename+'.csv'))
+        log.info(f"\tTotal processing time: {transcription_time+alignment_time}")
     # Generate output
     os.system(f"rar a {os.path.join(output_path,'asr.rar')} ./outputs")
 

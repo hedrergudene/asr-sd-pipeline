@@ -8,12 +8,12 @@ name: &name "diar_infer_meeting"
 
 num_workers: 1
 sample_rate: 16000
-batch_size: 64
+batch_size: 128
 device: null # can specify a specific device, i.e: cuda:1 (default cuda if cuda available, else cpu)
 verbose: True # enable additional logging
 
 diarizer:
-  manifest_filepath: './input/nemo_manifest.json'
+  manifest_filepath: './input/nemo_manifest.jsonl'
   out_dir: './nemo_output'
   oracle_vad: False # If True, uses RTTM files provided in the manifest file to get speech activity (VAD) timestamps
   collar: 0.25 # Collar value for scoring
@@ -67,7 +67,7 @@ diarizer:
   asr:
     model_path: stt_es_conformer_ctc_large # Provide NGC cloud ASR model name. stt_en_conformer_ctc_* models are recommended for diarization purposes.
     parameters:
-      asr_based_vad: False # if True, speech segmentation for diarization is based on word-timestamps from ASR inference.
+      asr_based_vad: True # if True, speech segmentation for diarization is based on word-timestamps from ASR inference.
       asr_based_vad_threshold: 1.0 # Threshold (in sec) that caps the gap between two words when generating VAD timestamps using ASR based VAD.
       asr_batch_size: null # Batch size can be dependent on each ASR model. Default batch sizes are applied if set to null.
       decoder_delay_in_sec: null # Native decoder delay. null is recommended to use the default values for each ASR model.

@@ -23,7 +23,7 @@ In this repository, we aim to provide a comprehensive overview of the latest adv
 
 Speech recognition is the task of automatically transcribing spoken language into text. It involves developing algorithms and models that can analyze audio recordings and identify the words and phrases spoken by a user. In recent years, deep learning models have shown great success in improving speech recognition accuracy, making it a hot topic in the field of machine learning.
 
-Autoregressive models such as [Whisper](https://openai.com/research/whisper) provide excepcional transcriptions when combined with some additional preprocessing features, that we have picked up from [this excellent repo](https://github.com/jianfch/stable-ts), being the quality of the timestamps returned for each audio segment rather poor. In this direction, phoneme-based speech recognition tools like [wav2vec2](https://ai.facebook.com/blog/wav2vec-20-learning-the-structure-of-speech-from-raw-audio/) handle timestamps perfectly, as these are finetuned to recognise the smallest unit of speech distinguishing one word from another. A technique that makes both ends meet is [forced alignment](https://linguistics.berkeley.edu/plab/guestwiki/index.php?title=Forced_alignment#:~:text=Forced%20alignment%20refers%20to%20the,automatically%20generate%20phone%20level%20segmentation.); a good introduction to this topic can be found [here](https://pytorch.org/audio/stable/tutorials/forced_alignment_tutorial.html), and our implementation relies on [whisperX repo](https://github.com/m-bain/whisperX).
+Autoregressive models such as [Whisper](https://openai.com/research/whisper) provide excepcional transcriptions when combined with some additional preprocessing features, that we have picked up from [this excellent repo](https://github.com/guillaumekln/faster-whisper), being the quality of the timestamps returned for each audio segment rather poor. In this direction, phoneme-based speech recognition tools like [wav2vec2](https://ai.facebook.com/blog/wav2vec-20-learning-the-structure-of-speech-from-raw-audio/) handle timestamps perfectly, as these are finetuned to recognise the smallest unit of speech distinguishing one word from another. A technique that makes both ends meet is [forced alignment](https://linguistics.berkeley.edu/plab/guestwiki/index.php?title=Forced_alignment#:~:text=Forced%20alignment%20refers%20to%20the,automatically%20generate%20phone%20level%20segmentation.); a good introduction to this topic can be found [here](https://pytorch.org/audio/stable/tutorials/forced_alignment_tutorial.html), and our implementation relies on [whisperX repo](https://github.com/m-bain/whisperX).
 
 <img src="images/sphx_glr_forced_alignment_tutorial_005.png"  width="70%" height="70%" style="display: block; margin: 0 auto">
 
@@ -122,9 +122,10 @@ python asr_msdd_inference_pipeline.py --config_path ./config/asr_msdd_inference_
 
 Despite including and end-to-end solution to model design in AML, the following additional features are expected to be developed:
 
-- [X] Speed up diarization step by using ASR output.
+- [X] Speed up diarization step by using aligned ASR output.
 - [X] Include CTranslate2 engine in ASR components.
-- [ ] Improve preprocessing techniques to enhance diarization stability.
+- [X] Improve preprocessing techniques in an individual component to enhance stability.
+- [X] Enhance benchmark logging and CUDA capabilities checking.
 - [ ] Make sentence alignment more sensitive to short texts.
 
 
