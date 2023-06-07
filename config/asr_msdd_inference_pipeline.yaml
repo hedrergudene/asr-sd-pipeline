@@ -7,17 +7,27 @@ azure:
     cpu_cluster_aml_id : 'cpu-cluster'
     gpu_cluster_aml_id : 'gpu-cluster'
   experiment_name : 'asr-msdd-inference'
+
 data:
   storage_id : 'XXXXXX'
   container_id : 'XXXXXX'
   regex_pattern : '(.*?)\.wav'
-inference:
+
+asr:
   whisper_model_name: 'large-v2'
-  vad_threshold: 0.35
-  no_speech_threshold: 0.5
-  language_code: 'es' # en, fr, pt, ch,...
+  num_workers: 4
+  beam_size: 5
+  vad_threshold: 0.5
+  min_speech_duration_ms: 200
+  min_silence_duration_ms: 500
+  language_code: 'es'
+  fp16: true
+
+diarization:
   event_type: 'telephonic' #could also be 'meeting'
   max_num_speakers: 3
   word_ts_anchor_offset: 0.05
+
+align:
   max_words_in_sentence: 80
   sentence_ending_punctuations: '.?!'

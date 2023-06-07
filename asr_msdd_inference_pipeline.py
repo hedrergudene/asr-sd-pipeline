@@ -18,7 +18,7 @@ root.addHandler(handler)
 
 # Main method. Fire automatically allign method arguments with parse commands from console
 def main(
-    config_path:str='./config/asr_msdd_inference_ctranslate2_pipeline.yaml'
+    config_path:str='./config/asr_msdd_inference_pipeline.yaml'
 ):
 
     # Get credential token
