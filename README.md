@@ -57,23 +57,11 @@ In order to optimize the resources we use in each module of our process, the fol
 
 ### Structure
 
-Pipelines, and in particular  AML components, are based on those of [*Kubeflow*](https://www.kubeflow.org/docs/components/pipelines/v1/sdk-v2/), so that the reader will be familiaried with the structure of these projects if he has previously used them. We recommend, in order to maintain good practices and avoid possible errors, to maintain the standardised format that is followed in the components of this project, and to freely manipulate the part of them where the code is entered, conveniently adjusting the rest of the files.
-
-For components that require only CPU units, we follow a structure like this:
-
-```
-  ├──<component-name>              # Where component lies
-  │   ├── .amlignore               # Data not to be included in AML component creation
-  │   ├── conda.yaml               # Conda environment and dependencies definition
-  │   ├── <component-name>.yaml    # Component configuration file
-  │   │                            
-  │   └── main.py                  # Entrypoint
-
-```
+Pipelines, and in particular  AML components, are based on those of [*Kubeflow*](https://www.kubeflow.org/docs/components/pipelines/v1/sdk-v2/), so that the reader will be familiaried with the structure of these projects if he has previously used them. We recommend, in order to maintain good practices and avoid possible errors, to maintain the standardised format that is followed in the components of this project, and to freely manipulate the part of them where the code is entered, conveniently adjusting the other files.
 
 For those components that require GPU acceleration, the corresponding *script* that launches the *job* with the pipeline that contains it is prepared to automatically detect what type of virtual machine is being used, and suitably adapt the configuration file associated with these components. All available VMs in your timezone can be collected from the following [link](https://azureprice.net/).
 
-Now let's see how a component with GPU(s) support is organized:
+Now let's see how a component is organized:
 
 ```
   ├──<component-name>                         

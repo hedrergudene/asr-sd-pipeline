@@ -40,16 +40,21 @@ outputs:
 # as the snapshot of this component
 code: ./
 
-# Where to run it
+# Environment takes care of source image and dependencies
+# https://learn.microsoft.com/en-us/azure/machine-learning/how-to-manage-environments-v2?view=azureml-api-2&tabs=cli
 environment:
   build:
     path: ./docker
-compute: azureml:gpu-cluster # This is a 1xTeslaK80 VM
 
-# How to run it
+# Cluster instance
+compute: azureml:gpu-cluster
+
+# Distribution type
 distribution:
   type: pytorch
-  process_count_per_instance: 1 # Number of GPUs per instance
+  process_count_per_instance: 1 # Number of nodes per instance
+
+# How many VMs we need
 resources:
   instance_count: 1 # Number of instances to create
 

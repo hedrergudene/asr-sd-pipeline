@@ -36,12 +36,23 @@ outputs:
 # as the snapshot of this component
 code: ./
 
-# The environment section contains a docker image and a conda yaml file.
-# The source file is in the sample repository.
+# Environment takes care of source image and dependencies
+# https://learn.microsoft.com/en-us/azure/machine-learning/how-to-manage-environments-v2?view=azureml-api-2&tabs=cli
 environment:
-  conda_file: ./conda.yaml
-  image: mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04
+  build:
+    path: ./docker
+
+# Cluster instance
 compute: azureml:cpu-cluster
+
+# Distribution type
+distribution:
+  type: mpi
+  process_count_per_instance: 1 # Number of nodes per instance
+
+# How many VMs we need
+resources:
+  instance_count: 1 # Number of instances to create
 
 # The command section specifies the command to execute while running
 # this component
