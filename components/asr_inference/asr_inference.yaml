@@ -19,13 +19,13 @@ inputs:
     default: large-v2
     optional: true
   num_workers:
-    type: int
+    type: integer
     min: 1
     max: 32
     default: 4
     optional: true
   beam_size:
-    type: int
+    type: integer
     min: 1
     max: 20
     default: 5
@@ -37,13 +37,13 @@ inputs:
     default: 0.5
     optional: true
   min_speech_duration_ms:
-    type: int
+    type: integer
     min: 0
     max: 2000
     default: 200
     optional: true
   min_silence_duration_ms:
-    type: int
+    type: integer
     min: 0
     max: 2000
     default: 500
