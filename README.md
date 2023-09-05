@@ -103,7 +103,8 @@ AML computing clusters will use a service account to which we must assign a seri
 Once the environment has been created, permissions for service account have been granted and you filled the configuration file with your own data, the fastest way to run AML pipelines is by opening a terminal and running the provided script to start an AzureML job:
 
 ```
-python asr_msdd_inference_pipeline.py --config_path ./config/asr_msdd_inference_pipeline.yaml
+cd parallel_job
+python parallel_job.py --config_path ./config/parallel_job.yaml
 ```
 
 ## Call for contributions
@@ -113,6 +114,7 @@ Despite including and end-to-end solution to model design in AML, the following 
 - [X] Speed up diarization step by using aligned ASR output.
 - [X] Include CTranslate2 engine in ASR components.
 - [X] Improve preprocessing techniques in an individual component to enhance stability.
+- [X] Parallelise processing using distributed, asynchronous clusters.
 - [X] Enhance benchmark logging and CUDA capabilities checking.
 - [ ] Make sentence alignment more sensitive to short texts.
 
