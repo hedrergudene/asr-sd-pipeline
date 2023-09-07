@@ -7,10 +7,8 @@ import soundfile as sf
 import librosa
 from pathlib import Path
 import os
-import re
 import json
 import time
-import subprocess
 from typing import List
 import json
 import torch
@@ -148,7 +146,7 @@ def run(mini_batch):
 
         # Read word-level transcription to fetch timestamps
         with open(os.path.join(input_asr_path, f"{filename}.json"), 'r', encoding='utf-8') as f:
-            x = json.load(f)
+            x = json.load(f)['segments']
         word_ts[filename] = [[w['start'],w['end']] for s in x for w in s['words']]
         # Fetch VAD info
         asr_vad_manifest += create_asr_vad_config(x, f'./input_audios/{filename}.wav', filename)
@@ -166,19 +164,21 @@ def run(mini_batch):
         # Read cfg
         log.info(f"Read NeMo MSDD configuration file:")
         filepaths = [os.path.join('./input_audios',x) for x in os.listdir('./input_audios')]
-        create_msdd_config(filepaths) # initialise msdd cfg
-        msdd_model.audio_file_list = filepaths # update audios list
+
         # Diarization
         log.info(f"Run diarization")
-        diar_time = time.time()
-        diar_hyp, _ = msdd_model.run_diarization(msdd_cfg, word_ts)
-        diar_time = time.time() - diar_time
-        log.info(f"\tDiarization time: {diar_time}")
-        # Process diarization output
-        log.info(f"Save outputs")
-        for x in process_NeMo_output(diar_hyp):
+        for f in filepaths:
+            diar_time = time.time()
+            create_msdd_config([f]) # initialise msdd cfg
+            msdd_model.audio_file_list = [f] # update audios list
+            diar_hyp, _ = msdd_model.run_diarization(msdd_cfg, word_ts)
+            diar_time = time.time() - diar_time
+            log.info(f"\tDiarization time: {diar_time}")
+            # Process diarization output
+            log.info(f"Save outputs")
+            x = process_NeMo_output(diar_hyp)
             with open(os.path.join(output_path, f"{x['filename']}.json"), 'w', encoding='utf8') as f:
-                json.dump(x['segments'], f, ensure_ascii=False)
+                json.dump({'segments': x['segments'], 'metadata': {'diarization_time': diar_time}}, f, ensure_ascii=False)
         log.info(f"Cleanup resources")
         delete_files_in_directory_and_subdirectories('./input_audios')
         delete_files_in_directory_and_subdirectories('./nemo_output')

@@ -238,9 +238,16 @@ def run(mini_batch):
         de_time = time.time() - de_time
         log.info(f"\t\tDigit (re)encoding time: {de_time}")
 
+        # Build metadata
+        mtd = {
+            "transcription_time": transcription_time,
+            "decoding_time": decoding_time,
+            "alignment_time": alignment_time,
+            "encoding_time": de_time
+        }
         # Save output
         with open(os.path.join(output_path, f"{filename}.json"), 'w', encoding='utf8') as f:
-            json.dump(aligned_output, f, ensure_ascii=False)
+            json.dump({'segments': aligned_output, 'metadata': mtd}, f, ensure_ascii=False)
         ## Generate output (filename goes WITHOUT extension, we no longer give a f**k!)
         #objs.append({'filename': filename, 'segments': aligned_output})       
 

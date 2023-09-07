@@ -5,6 +5,7 @@ import logging as log
 import re
 import json
 import os
+import time
 from pathlib import Path
 from deepmultilingualpunctuation import PunctuationModel
 
@@ -237,11 +238,12 @@ def run(mini_batch):
         filename, _ = os.path.splitext(str(pathdir).split('/')[-1])
         with open(pathdir, 'r', encoding='utf8') as f:
             asr_dct = json.load(f)
-        asr_dct = [w for s in asr_dct for w in s['words']]
+        asr_dct = [w for s in asr_dct['segments'] for w in s['words']]
         with open(os.path.join(input_diar_path, f"{filename}.json"), 'r', encoding='utf8') as f:
             diar_dct = json.load(f)
-        diar_dct = [[s['start'], s['end'], s['speaker']] for s in diar_dct]
+        diar_dct = [[s['start'], s['end'], s['speaker']] for s in diar_dct['segments']]
         # Get labels for each piece of text from ASR
+        sm_time = time.time()
         wsm = get_words_speaker_mapping(asr_dct, diar_dct)
         words_list = list(map(lambda x: x["word"], wsm))
         labled_words = punct_model.predict(words_list)
@@ -259,10 +261,12 @@ def run(mini_batch):
                     word = word.rstrip(".")
                 word_dict["word"] = word
         wsm_final = get_realigned_ws_mapping_with_punctuation(wsm, max_words_in_sentence, sentence_ending_punctuations)
-        ssm = get_sentences_speaker_mapping(wsm_final, diar_dct)        
+        ssm = get_sentences_speaker_mapping(wsm_final, diar_dct)
+        sm_time = time.time() - sm_time
+        log.info(f"\tSentence-mapping time: {sm_time}")
 
         # Save output
         with open(os.path.join(output_path, f"{filename}.json"), 'w', encoding='utf8') as f:
-            json.dump(ssm, f, ensure_ascii=False)
+            json.dump({'segments': ssm, 'metadata': {**asr_dct['metadata'], **diar_dct['metadata'], **{'sentence_mapping_time': sm_time}}}, f, ensure_ascii=False)
 
     return mini_batch
