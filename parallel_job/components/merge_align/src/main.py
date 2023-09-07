@@ -17,6 +17,7 @@ formatter = log.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 handler.setFormatter(formatter)
 root.addHandler(handler)
 
+
 # Helper functions to align sentences with punctuation signs
 def get_word_ts_anchor(s, e, option="mid"):
     if option == "end":
@@ -31,10 +32,13 @@ def get_words_speaker_mapping(wrd_ts, spk_ts, word_anchor_option="mid"):
     wrd_pos, turn_idx = 0, 0
     wrd_spk_mapping = []
     for wrd_dict in wrd_ts:
-        ws, we, wrd = (
+        ws, we, wc, wsidx, weidx, wrd = (
             wrd_dict["start"],
             wrd_dict["end"],
-            wrd_dict["text"],
+            wrd_dict["score"],
+            wrd_dict['start_idx'],
+            wrd_dict['end_idx'],
+            wrd_dict["word"],
         )
         wrd_pos = get_word_ts_anchor(ws, we, word_anchor_option)
         while wrd_pos > float(e):
@@ -44,7 +48,7 @@ def get_words_speaker_mapping(wrd_ts, spk_ts, word_anchor_option="mid"):
             if turn_idx == len(spk_ts) - 1:
                 e = get_word_ts_anchor(ws, we, option="end")
         wrd_spk_mapping.append(
-            {"word": wrd, "start_time": ws, "end_time": we, "speaker": sp}
+            {"word": wrd, "start_time": ws, "end_time": we, "confidence": wc, "start_idx": wsidx, "end_idx": weidx, "speaker": sp}
         )
     return wrd_spk_mapping
 
@@ -149,27 +153,40 @@ def get_sentences_speaker_mapping(word_speaker_mapping, spk_ts):
     prev_spk = spk
 
     snts = []
-    snt = {"speaker": f"Speaker {spk}", "start_time": s, "end_time": e, "text": ""}
+    cf = []
+    words = []
+
+    snt = {"speaker": f"Speaker {spk}", "start_time": s, "end_time": e, "start_idx": 0, "end_idx":0, "confidence": 0, "text": "", "words": []}
 
     for wrd_dict in word_speaker_mapping:
         wrd, spk = wrd_dict["word"], wrd_dict["speaker"]
-        s, e = wrd_dict["start_time"], wrd_dict["end_time"]
         if spk != prev_spk:
             snts.append(snt)
             snt = {
                 "speaker": f"Speaker {spk}",
-                "start_time": s,
-                "end_time": e,
+                "start_time": wrd_dict["start_time"],
+                "end_time": wrd_dict["end_time"],
+                "start_idx": wrd_dict['start_idx'],
+                "end_idx": wrd_dict['end_idx'],
+                "confidence": 0,
                 "text": "",
+                "words": [],
             }
+            cf = []
+            words = []
         else:
-            snt["end_time"] = e
+            snt["end_time"] = wrd_dict["end_time"]
+            snt['end_idx'] = wrd_dict['end_idx']
+            cf.append(wrd_dict['confidence'])
+            snt['confidence'] = sum(cf)/len(cf)
+            words.append(wrd_dict)
+            snt['words'] = words
         snt["text"] += wrd + " "
         prev_spk = spk
-        
     snt['text'] = snt['text'].strip()
     snts.append(snt)
     return snts
+
 
 #
 # Scoring (entry) script: entry point for execution, scoring script should contain two functions:
@@ -204,7 +221,6 @@ def init():
     output_path = args.output_path
 
     # Folder structure
-    Path('./input_audios').mkdir(parents=True, exist_ok=True)
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
     # Punctuation model
@@ -221,7 +237,7 @@ def run(mini_batch):
         filename, _ = os.path.splitext(str(pathdir).split('/')[-1])
         with open(pathdir, 'r', encoding='utf8') as f:
             asr_dct = json.load(f)
-        asr_dct = [{'start':w['start'],'end':w['end'],'text':w['word']} for s in asr_dct for w in s['words']]
+        asr_dct = [w for s in asr_dct for w in s['words']]
         with open(os.path.join(input_diar_path, f"{filename}.json"), 'r', encoding='utf8') as f:
             diar_dct = json.load(f)
         diar_dct = [[s['start'], s['end'], s['speaker']] for s in diar_dct]
