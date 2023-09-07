@@ -20,7 +20,7 @@ diarizer:
   ignore_overlap: True # Consider or ignore overlap segments while scoring
 
   vad:
-    model_path:  vad_multilingual_marblenet # .nemo local model path or pretrained VAD model name
+    model_path:  null # .nemo local model path or pretrained VAD model name
     external_vad_manifest: null # This option is provided to use external vad and provide its speech activity labels for speaker embeddings extraction. Only one of model_path or external_vad_manifest should be set
 
     parameters: # Tuned parameters for CH109 (using the 11 multi-speaker sessions as dev set) 

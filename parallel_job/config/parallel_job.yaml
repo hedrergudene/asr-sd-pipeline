@@ -27,7 +27,7 @@ diarization:
   max_num_speakers: 3
 
 align:
-  max_words_in_sentence: 80
+  max_words_in_sentence: 60
   sentence_ending_punctuations: '.?!'
 
 job:
@@ -38,3 +38,5 @@ job:
   error_threshold: 1
   max_retries: 2
   timeout: 3600
+  first_task_creation_timeout: 3000
+  resource_monitor_interval: 0

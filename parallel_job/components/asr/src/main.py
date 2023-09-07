@@ -65,6 +65,7 @@ def init():
     parser.add_argument("--min_silence_duration_ms", type=int, default=500)
     parser.add_argument("--compute_type", type=str, default='float16')
     parser.add_argument("--language_code", type=str, default='es')
+    parser.add_argument("--output_path", type=str)
     args, _ = parser.parse_known_args()
 
     # Device
@@ -72,15 +73,17 @@ def init():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # Params
-    global beam_size, vad_threshold, min_speech_duration_ms, min_silence_duration_ms, language_code
+    global beam_size, vad_threshold, min_speech_duration_ms, min_silence_duration_ms, language_code, output_path
     beam_size = args.beam_size
     vad_threshold = args.vad_threshold
     min_speech_duration_ms = args.min_speech_duration_ms
     min_silence_duration_ms = args.min_silence_duration_ms
     language_code = args.language_code
+    output_path = args.output_path
 
     # Folder structure
     Path('./input_audios').mkdir(parents=True, exist_ok=True)
+    Path(output_path).mkdir(parents=True, exist_ok=True)
 
     # ASR models
     global whisper_model
@@ -97,14 +100,12 @@ def init():
 
 
 def run(mini_batch):
-    objs = []
     for elem in mini_batch:
         # Read file
         pathdir = Path(elem)
         filename, extension = os.path.splitext(str(pathdir).split('/')[-1])
         if os.path.splitext(pathdir)[1] not in ['.wav', '.mp3']:
             log.info("Skipping file {}".format(pathdir))
-            objs.append({'filename': pathdir, 'segments': []})
             continue
         log.info("Processing file {}".format(pathdir))
 
@@ -116,7 +117,7 @@ def run(mini_batch):
             signal = librosa.resample(signal, orig_sr=sample_rate, target_sr=16000)
         if len(signal.shape)>1: # Set num_channels
             signal = librosa.to_mono(signal)
-        sf.write(f'./input_audios/{filename}{extension}', signal, 16000, 'PCM_24') # save in tmp path as 16kHz, mono
+        sf.write(f'./input_audios/{filename}.wav', signal, 16000, 'PCM_24') # save in tmp path as 16kHz, mono
         prep_time = time.time() - prep_time
         log.info(f"\t\tPrep. time: {prep_time}")
 
@@ -237,10 +238,13 @@ def run(mini_batch):
         de_time = time.time() - de_time
         log.info(f"\t\tDigit (re)encoding time: {de_time}")
 
-        # Generate output (filename goes WITHOUT extension, we no longer give a f**k!)
-        objs.append({'filename': filename, 'segments': aligned_output})
-    
+        # Save output
+        with open(os.path.join(output_path, f"{filename}.json"), 'w', encoding='utf8') as f:
+            json.dump(aligned_output, f, ensure_ascii=False)
+        ## Generate output (filename goes WITHOUT extension, we no longer give a f**k!)
+        #objs.append({'filename': filename, 'segments': aligned_output})       
+
     # Remove audios
     delete_files_in_directory_and_subdirectories('./input_audios')
 
-    return objs
+    return mini_batch
