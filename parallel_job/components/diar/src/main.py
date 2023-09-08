@@ -176,9 +176,9 @@ def run(mini_batch):
             log.info(f"\tDiarization time: {diar_time}")
             # Process diarization output
             log.info(f"Save outputs")
-            x = process_NeMo_output(diar_hyp)
-            with open(os.path.join(output_path, f"{x['filename']}.json"), 'w', encoding='utf8') as f:
-                json.dump({'segments': x['segments'], 'metadata': {'diarization_time': diar_time}}, f, ensure_ascii=False)
+            for x in process_NeMo_output(diar_hyp):
+                with open(os.path.join(output_path, f"{x['filename']}.json"), 'w', encoding='utf8') as f:
+                    json.dump({'segments': x['segments'], 'metadata': {'diarization_time': diar_time}}, f, ensure_ascii=False)
         log.info(f"Cleanup resources")
         delete_files_in_directory_and_subdirectories('./input_audios')
         delete_files_in_directory_and_subdirectories('./nemo_output')

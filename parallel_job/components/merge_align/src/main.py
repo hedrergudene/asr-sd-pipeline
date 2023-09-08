@@ -247,13 +247,13 @@ def run(mini_batch):
         filename, _ = os.path.splitext(str(pathdir).split('/')[-1])
         with open(pathdir, 'r', encoding='utf8') as f:
             asr_dct = json.load(f)
-        asr_dct = [w for s in asr_dct['segments'] for w in s['words']]
+        asr_input = [w for s in asr_dct['segments'] for w in s['words']]
         with open(os.path.join(input_diar_path, f"{filename}.json"), 'r', encoding='utf8') as f:
             diar_dct = json.load(f)
-        diar_dct = [[s['start'], s['end'], s['speaker']] for s in diar_dct['segments']]
+        diar_input = [[s['start'], s['end'], s['speaker']] for s in diar_dct['segments']]
         # Get labels for each piece of text from ASR
         sm_time = time.time()
-        wsm = get_words_speaker_mapping(asr_dct, diar_dct)
+        wsm = get_words_speaker_mapping(asr_input, diar_input)
         words_list = list(map(lambda x: x["word"], wsm))
         labled_words = punct_model.predict(words_list)
         # Acronyms handling
@@ -270,7 +270,7 @@ def run(mini_batch):
                     word = word.rstrip(".")
                 word_dict["word"] = word
         wsm_final = get_realigned_ws_mapping_with_punctuation(wsm, max_words_in_sentence, sentence_ending_punctuations)
-        ssm = get_sentences_speaker_mapping(wsm_final, diar_dct)
+        ssm = get_sentences_speaker_mapping(wsm_final, diar_input)
         sm_time = time.time() - sm_time
         log.info(f"\tSentence-mapping time: {sm_time}")
 
@@ -285,7 +285,7 @@ def run(mini_batch):
         ) as f:
             json.dump({
                 'unique_id': filename,
-                'duration': diar_dct[-1][0],
+                'duration': diar_input[-1][0],
                 'processing_time': {
                     **asr_dct['metadata'],
                     **diar_dct['metadata'],
