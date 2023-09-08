@@ -285,7 +285,7 @@ def run(mini_batch):
         ) as f:
             json.dump({
                 'unique_id': filename,
-                'duration': diar_input[-1][0],
+                'duration': asr_dct['duration'],
                 'processing_time': {
                     **asr_dct['metadata'],
                     **diar_dct['metadata'],

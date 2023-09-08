@@ -240,6 +240,7 @@ def run(mini_batch):
 
         # Build metadata
         mtd = {
+            "preprocessing_time": prep_time,
             "transcription_time": transcription_time,
             "decoding_time": decoding_time,
             "alignment_time": alignment_time,
@@ -247,7 +248,7 @@ def run(mini_batch):
         }
         # Save output
         with open(os.path.join(output_path, f"{filename}.json"), 'w', encoding='utf8') as f:
-            json.dump({'segments': aligned_output, 'metadata': mtd}, f, ensure_ascii=False)
+            json.dump({'segments': aligned_output, 'duration': librosa.get_duration(signal, sr=16000), 'metadata': mtd}, f, ensure_ascii=False)
         ## Generate output (filename goes WITHOUT extension, we no longer give a f**k!)
         #objs.append({'filename': filename, 'segments': aligned_output})       
 
