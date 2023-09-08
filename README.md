@@ -31,7 +31,7 @@ A technique that makes both ends meet is [forced alignment](https://linguistics.
 
 Alignment can only be performed, however, when both model's vocabulary is matched. To overcome this issue, we pay attention to numerical characters, together with special ones (e.g. `$`, `%` or `@`), and preserve their absolute position within the whole transcription to make the reverse problem simpler to solve, as the conversion from characters into words and/or special characters is an $O(n)$ challenge.
 
-<img src="images/special_char.PNG"  width="70%" height="70%" style="display: block; margin: 0 auto">
+<img src="images/special_char.PNG"  width="50%" height="50%" style="display: block; margin: 0 auto">
 
 Speaker diarization, on the other hand, is the process of separating multiple speakers in an audio recording and assigning each speaker to their respective segments. It involves analyzing the audio signal to identify the unique characteristics of each speaker, such as their voice, intonation, and speaking style. Speaker diarization is essential in applications such as call center analytics, meeting transcription, and language learning, where it is necessary to distinguish between different speakers in a conversation.
 
@@ -39,7 +39,7 @@ In this direction, [Multi-scale systems](https://developer.nvidia.com/blog/dynam
 
 Finally, in order to enhance natural language transcriptions quality and readability, a punctuation-based sentence alignment strategy has been implemented after both ASR and diarization steps.
 
-<img src="images/summary.PNG"  width="70%" height="70%" style="display: block; margin: 0 auto">
+<img src="images/summary.PNG"  width="100%" height="70%" style="display: block; margin: 0 auto">
 
 
 ## Components
