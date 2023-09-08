@@ -2,14 +2,12 @@
 import argparse
 import sys
 import logging as log
-import requests
 import soundfile as sf
 import librosa
 from pathlib import Path
 import os
 import re
 import time
-import subprocess
 from typing import List
 import json
 from num2words import num2words
@@ -195,11 +193,26 @@ def run(mini_batch):
         de_time = time.time()
         aligned_output, length = [], 0
         for blk in result_aligned['segments']:
-            out = {'start': blk.get('start'), 'end': blk.get('end'), 'start_idx': length, 'end_idx': len(blk['text'])+length, 'text': blk.get('text'), 'words':[]}
+            out = {
+                'start': blk.get('start'),
+                'end': blk.get('end'),
+                'start_idx': length,
+                'end_idx': len(blk['text'])+length,
+                'text': blk.get('text'),
+                'words':[]
+            }
             shift = 0
             for word_dct in blk.get('words'):
                 match = re.search(word_dct.get('word'), blk.get('text')[shift:])
-                out['words'].append({**word_dct, **{'start_idx': match.start()+shift+length, 'end_idx': match.end()+shift+length}})
+                out['words'].append(
+                    {
+                        **word_dct,
+                        **{
+                            'start_idx': match.start()+shift+length,
+                            'end_idx': match.end()+shift+length
+                        }
+                    }
+                )
                 shift += match.end()
             length += shift+1
             aligned_output.append(out)
@@ -208,7 +221,14 @@ def run(mini_batch):
         for seg in aligned_output:
             shift_local = 0
             seg['start_idx'], seg['end_idx'] = seg['start_idx']+shift_global, seg['end_idx']+shift_global
-            ents = [{'text': x['text'], 'pattern': x['pattern'], 'start_idx': x['start_idx']+shift_global, 'end_idx': x['end_idx']+shift_global} for x in ents]
+            ents = [
+                {
+                    'text': x['text'],
+                    'pattern': x['pattern'],
+                    'start_idx': x['start_idx']+shift_global,
+                    'end_idx': x['end_idx']+shift_global
+                } for x in ents
+            ]
             seg['words'] = [{'word': x['word'], 'start': x['start'], 'end': x['end'], 'score': x['score'], 'start_idx': x['start_idx']+shift_global, 'end_idx': x['end_idx']+shift_global} for x in seg['words']]
             ents_seg = [x for x in ents if ((seg['start_idx']<=x['start_idx']) & (seg['end_idx']>=x['end_idx']))]
             for ent in ents_seg:
@@ -230,7 +250,16 @@ def run(mini_batch):
                 target_words_end = [x for x in seg['words'] if x['start_idx']>=ent['end_idx']]
                 for x in target_words_end:
                     seg['words'].remove(x)
-                    seg['words'].append({'word': x['word'], 'start': x['start'], 'end': x['end'], 'score': x['score'], 'start_idx': x['start_idx']+shift_ent, 'end_idx': x['end_idx']+shift_ent})
+                    seg['words'].append(
+                        {
+                            'word': x['word'],
+                            'start': x['start'],
+                            'end': x['end'],
+                            'score': x['score'],
+                            'start_idx': x['start_idx']+shift_ent,
+                            'end_idx': x['end_idx']+shift_ent
+                        }
+                    )
             # ...and update global parameters
             seg['end_idx'] += len(' '.join([x['word'] for x in seg['words']])) - len(seg['text'])
             seg['text'] = ' '.join([x['word'] for x in seg['words']])
@@ -248,7 +277,15 @@ def run(mini_batch):
         }
         # Save output
         with open(os.path.join(output_path, f"{filename}.json"), 'w', encoding='utf8') as f:
-            json.dump({'segments': aligned_output, 'duration': librosa.get_duration(signal, sr=16000), 'metadata': mtd}, f, ensure_ascii=False)
+            json.dump(
+                {
+                    'segments': aligned_output,
+                    'duration': librosa.get_duration(y=signal, sr=16000),
+                    'metadata': mtd
+                },
+                f,
+                ensure_ascii=False
+            )
         ## Generate output (filename goes WITHOUT extension, we no longer give a f**k!)
         #objs.append({'filename': filename, 'segments': aligned_output})       
 
