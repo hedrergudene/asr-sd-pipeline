@@ -157,7 +157,16 @@ def get_sentences_speaker_mapping(word_speaker_mapping, spk_ts):
     cf = []
     words = []
 
-    snt = {"speaker": f"Speaker {spk}", "start_time": s, "end_time": e, "start_idx": 0, "end_idx":0, "confidence": 0, "text": "", "words": []}
+    snt = {
+        "speaker": f"Speaker {spk}",
+        "start_time": s,
+        "end_time": e,
+        "start_idx": 0,
+        "end_idx":0,
+        "confidence": 0,
+        "text": "",
+        "words": []
+    }
 
     for wrd_dict in word_speaker_mapping:
         wrd, spk = wrd_dict["word"], wrd_dict["speaker"]
@@ -266,7 +275,25 @@ def run(mini_batch):
         log.info(f"\tSentence-mapping time: {sm_time}")
 
         # Save output
-        with open(os.path.join(output_path, f"{filename}.json"), 'w', encoding='utf8') as f:
-            json.dump({'segments': ssm, 'metadata': {**asr_dct['metadata'], **diar_dct['metadata'], **{'sentence_mapping_time': sm_time}}}, f, ensure_ascii=False)
+        with open(
+            os.path.join(
+                output_path,
+                f"{filename}.json"
+            ),
+            'w',
+            encoding='utf8'
+        ) as f:
+            json.dump({
+                'unique_id': filename,
+                'duration': diar_dct[-1][0],
+                'processing_time': {
+                    **asr_dct['metadata'],
+                    **diar_dct['metadata'],
+                    **{
+                        'sentence_mapping_time': sm_time
+                    }
+                },
+                'segments': ssm
+            }, f, ensure_ascii=False)
 
     return mini_batch
