@@ -148,11 +148,13 @@ def run(mini_batch):
         length, ents, seg_dct = 0, [], []
         for x in segs:
             text = x.get('text')
-            next_match = re.search(r'\b(?:[\d,-]+)\b', text)
+            # Matches that are related to numeric expressions and special symbols
+            regex = r'(?:[0-9]+(?:[-.,][0-9]+)*)'
+            next_match = re.search(r'(?:[0-9]+(?:[-.,][0-9]+)*)', text)
             while next_match is not None:
                 ts, te, match = next_match.start(), next_match.end(), next_match.group()
                 new_text = match.replace('-', ' ')
-                new_text= ' '.join([num2words(z.replace(',',''), lang='es') for z in new_text.split(' ')])
+                new_text= ' '.join([num2words(z.replace(',',''), lang=language_code) for z in new_text.split(' ')])
                 if text[next_match.start()-1:next_match.start()]=='$': # Dollars
                     new_text = new_text+' dólares' if language_code=='es' else new_text+' dollars'
                     ents.append({'text': new_text, 'pattern':'$'+match, 'start_idx': ts+length-1, 'end_idx': ts+(len(new_text)-1)+length})
@@ -164,10 +166,33 @@ def run(mini_batch):
                 else:
                     ents.append({'text': new_text, 'pattern':match, 'start_idx': ts+length, 'end_idx': ts+len(new_text)+length})
                     text = text[:ts] + new_text + text[te:]
-                next_match = re.search(r'\b(?:[\d,-]+)\b', text)
+                # Modify via shift entities that are after the chosen one
+                shift = len(new_text) -len(match)
+                for ent in [x for x in ents if te<=x['start_idx']]:
+                    ent['start_idx'] += shift
+                    ent['end_idx'] += shift
+                # Restart loop
+                next_match = re.search(r'(?:[0-9]+(?:[-.,][0-9]+)*)', text)
+            # Matches that are related to dots followed and preceded by characters
+            regex=r'(?<=[A-Za-z])\.(?=[A-Za-z])'
+            next_match = re.search(regex, text)
+            new_text = ' punto ' if language_code=='es' else ' dot '
+            while next_match is not None:
+                ts, te, match = next_match.start(), next_match.end(), next_match.group()
+                ents.append({'text': new_text, 'pattern':match, 'start_idx': ts+length, 'end_idx': ts+len(new_text)+length})
+                text = text[:ts] + new_text + text[te:]
+                # Modify via shift entities that are after the chosen one
+                shift = len(new_text) -len(match)
+                for ent in [x for x in ents if te<=x['start_idx']]:
+                    ent['start_idx'] += shift
+                    ent['end_idx'] += shift
+                # Restart loop
+                next_match = re.search(regex, text)
+            # Append modified text
             seg_dct.append({'start': x['start'], 'end': x['end'], 'text': text})
-            length += len(text)
-            decoding_time = time.time()-decoding_time
+            #! BIG UPDATE: ADD +1 TO ALIGN WITH JOINT TEXT
+            length += len(text)+1
+        decoding_time = time.time()-decoding_time
         log.info(f"\t\tDecoding time: {decoding_time}")
 
         #
@@ -191,6 +216,7 @@ def run(mini_batch):
         # Add ABSOLUTE start-end indices tokens to aligned output
         log.info(f"\tDigits (re)encoding:")
         de_time = time.time()
+        #! BIG UPDATE: Re-encoding based on word-level concatenation
         aligned_output, length = [], 0
         for blk in result_aligned['segments']:
             out = {
@@ -203,45 +229,37 @@ def run(mini_batch):
             }
             shift = 0
             for word_dct in blk.get('words'):
-                match = re.search(word_dct.get('word'), blk.get('text')[shift:])
                 out['words'].append(
                     {
                         **word_dct,
                         **{
-                            'start_idx': match.start()+shift+length,
-                            'end_idx': match.end()+shift+length
+                            'start_idx': shift+length,
+                            'end_idx': len(word_dct['word'])+shift+length
                         }
                     }
                 )
-                shift += match.end()
-            length += shift+1
+                shift += len(word_dct['word'])+1
+            length += shift
             aligned_output.append(out)
         # Merge information
         shift_global = 0
         for seg in aligned_output:
-            shift_local = 0
+            shift_seg = 0
             seg['start_idx'], seg['end_idx'] = seg['start_idx']+shift_global, seg['end_idx']+shift_global
-            ents = [
-                {
-                    'text': x['text'],
-                    'pattern': x['pattern'],
-                    'start_idx': x['start_idx']+shift_global,
-                    'end_idx': x['end_idx']+shift_global
-                } for x in ents
-            ]
             seg['words'] = [{'word': x['word'], 'start': x['start'], 'end': x['end'], 'score': x['score'], 'start_idx': x['start_idx']+shift_global, 'end_idx': x['end_idx']+shift_global} for x in seg['words']]
             ents_seg = [x for x in ents if ((seg['start_idx']<=x['start_idx']) & (seg['end_idx']>=x['end_idx']))]
             for ent in ents_seg:
                 # Update entity positions...
-                ent = {'text': ent['text'], 'pattern': ent['pattern'], 'start_idx': ent['start_idx']+shift_local, 'end_idx': ent['end_idx']+shift_local}
+                new_text = ent['pattern']+'.' if ent['end_idx']+1==seg['end_idx'] else ent['pattern']
+                ent = {'text': ent['text'], 'pattern': new_text, 'start_idx': ent['start_idx']+shift_seg, 'end_idx': ent['end_idx']+shift_seg}
                 # ...find all words between those positions and compute stats...
                 target_words_begin = [x for x in seg['words'] if ((x['start_idx']>=ent['start_idx']) & (x['start_idx']<=ent['end_idx']))]
                 agg_dct = pd.DataFrame(target_words_begin).agg({'start': 'min', 'end': 'max', 'score': 'mean', 'start_idx': 'min', 'end_idx': 'max'}).to_dict()
                 agg_dct['start_idx'] = int(ent['start_idx'])
-                agg_dct['end_idx'] = ent['start_idx']+len(ent['pattern'])
-                agg_dct['word'] = ent['pattern']
-                shift_ent = len(ent['pattern'])-int(len(' '.join([x['word'] for x in target_words_begin])))
-                shift_local += shift_ent
+                agg_dct['end_idx'] = ent['start_idx']+len(new_text)
+                agg_dct['word'] = new_text
+                shift_ent = len(new_text)-int(len(' '.join([x['word'] for x in target_words_begin])))
+                shift_seg += shift_ent
                 # ...remove decoded words...
                 for x in target_words_begin: seg['words'].remove(x)
                 # ...include new word...
@@ -263,7 +281,15 @@ def run(mini_batch):
             # ...and update global parameters
             seg['end_idx'] += len(' '.join([x['word'] for x in seg['words']])) - len(seg['text'])
             seg['text'] = ' '.join([x['word'] for x in seg['words']])
-            shift_global += shift_local
+            ents = [
+                {
+                    'text': x['text'],
+                    'pattern': x['pattern'],
+                    'start_idx': x['start_idx']+shift_seg,
+                    'end_idx': x['end_idx']+shift_seg
+                } for x in ents
+            ]
+            shift_global += shift_seg
         de_time = time.time() - de_time
         log.info(f"\t\tDigit (re)encoding time: {de_time}")
 
