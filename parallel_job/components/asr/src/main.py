@@ -248,12 +248,13 @@ def run(mini_batch):
             seg['start_idx'], seg['end_idx'] = seg['start_idx']+shift_global, seg['end_idx']+shift_global
             seg['words'] = [{'word': x['word'], 'start': x['start'], 'end': x['end'], 'score': x['score'], 'start_idx': x['start_idx']+shift_global, 'end_idx': x['end_idx']+shift_global} for x in seg['words']]
             ents_seg = [x for x in ents if ((seg['start_idx']<=x['start_idx']) & (seg['end_idx']>=x['end_idx']))]
+            if len(ents_seg)>0: ents_seg = [x for x in ents if ((seg['start_idx']<=x['start_idx']) & (seg['end_idx']>=x['end_idx']))]
             for ent in ents_seg:
                 # Update entity positions...
                 new_text = ent['pattern']+'.' if ent['end_idx']+1==seg['end_idx'] else ent['pattern']
                 ent = {'text': ent['text'], 'pattern': new_text, 'start_idx': ent['start_idx']+shift_seg, 'end_idx': ent['end_idx']+shift_seg}
                 # ...find all words between those positions and compute stats...
-                target_words_begin = [x for x in seg['words'] if ((x['start_idx']>=ent['start_idx']) & (x['start_idx']<=ent['end_idx']))]
+                target_words_begin = [x for x in seg['words'] if ((x['start_idx']>=ent['start_idx']) & (x['start_idx']<ent['end_idx']))]
                 agg_dct = pd.DataFrame(target_words_begin).agg({'start': 'min', 'end': 'max', 'score': 'mean', 'start_idx': 'min', 'end_idx': 'max'}).to_dict()
                 agg_dct['start_idx'] = int(ent['start_idx'])
                 agg_dct['end_idx'] = ent['start_idx']+len(new_text)
