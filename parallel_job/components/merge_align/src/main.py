@@ -37,8 +37,8 @@ def get_words_speaker_mapping(wrd_ts, spk_ts, word_anchor_option="mid"):
             wrd_dict["start"],
             wrd_dict["end"],
             wrd_dict["score"],
-            wrd_dict['start_idx'],
-            wrd_dict['end_idx'],
+            #wrd_dict['start_idx'],
+            #wrd_dict['end_idx'],
             wrd_dict["word"],
         )
         wrd_pos = get_word_ts_anchor(ws, we, word_anchor_option)
@@ -49,7 +49,15 @@ def get_words_speaker_mapping(wrd_ts, spk_ts, word_anchor_option="mid"):
             if turn_idx == len(spk_ts) - 1:
                 e = get_word_ts_anchor(ws, we, option="end")
         wrd_spk_mapping.append(
-            {"word": wrd, "start_time": ws, "end_time": we, "confidence": wc, "start_idx": wsidx, "end_idx": weidx, "speaker": sp}
+            {
+                "word": wrd,
+                "start_time": ws,
+                "end_time": we,
+                "confidence": wc,
+                #"start_idx": wsidx,
+                #"end_idx": weidx,
+                "speaker": sp
+            }
         )
     return wrd_spk_mapping
 
@@ -161,8 +169,8 @@ def get_sentences_speaker_mapping(word_speaker_mapping, spk_ts):
         "speaker": f"Speaker {spk}",
         "start_time": s,
         "end_time": e,
-        "start_idx": 0,
-        "end_idx":0,
+        #"start_idx": 0,
+        #"end_idx":0,
         "confidence": 0,
         "text": "",
         "words": []
@@ -176,8 +184,8 @@ def get_sentences_speaker_mapping(word_speaker_mapping, spk_ts):
                 "speaker": f"Speaker {spk}",
                 "start_time": wrd_dict["start_time"],
                 "end_time": wrd_dict["end_time"],
-                "start_idx": wrd_dict['start_idx'],
-                "end_idx": wrd_dict['end_idx'],
+                #"start_idx": wrd_dict['start_idx'],
+                #"end_idx": wrd_dict['end_idx'],
                 "confidence": 0,
                 "text": "",
                 "words": [],
@@ -186,7 +194,7 @@ def get_sentences_speaker_mapping(word_speaker_mapping, spk_ts):
             words = []
         else:
             snt["end_time"] = wrd_dict["end_time"]
-            snt['end_idx'] = wrd_dict['end_idx']
+            #snt['end_idx'] = wrd_dict['end_idx']
             cf.append(wrd_dict['confidence'])
             snt['confidence'] = sum(cf)/len(cf)
             words.append(wrd_dict)

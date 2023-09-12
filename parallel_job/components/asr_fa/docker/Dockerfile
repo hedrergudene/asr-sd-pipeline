@@ -4,7 +4,7 @@ FROM mcr.microsoft.com/azureml/curated/acpt-pytorch-2.0-cuda11.7
 
 # Install pip dependencies
 ## ASR
-RUN pip install 'faster-whisper==0.8.0 ' \
+RUN pip install 'git+https://github.com/m-bain/whisperx.git ' \
                 'mltable>=1.2.0' \
                 'azureml-dataset-runtime[pandas,fuse]' \
                 'azureml-telemetry' \

@@ -46,7 +46,8 @@ def main(
 
     # Set the input and output URI paths for the data.
     input_audio_data = Input(
-        path=f"wasbs://{config_dct['data']['container_name']}@{config_dct['data']['storage_account_name']}.blob.core.windows.net/{config_dct['data']['blob_path']}",
+        path='./audit-jean',
+        #path=f"wasbs://{config_dct['data']['container_name']}@{config_dct['data']['storage_account_name']}.blob.core.windows.net/{config_dct['data']['blob_path']}",
         type=AssetTypes.URI_FOLDER,
         mode=InputOutputModes.RO_MOUNT #Alternative, DOWNLOAD
     )
@@ -162,8 +163,8 @@ def main(
         display_name="Parallel merge & alignment",
         description="Parallel component to align transcriptions and diarization",
         inputs=dict(
-            input_asr_path=Input(type=AssetTypes.URI_FOLDER, description="Audio transcriptions"),
-            input_diar_path=Input(type=AssetTypes.URI_FOLDER, description="Audio diarizations"),
+            input_asr_path=Input(type=AssetTypes.URI_FOLDER, description="Audios to be diarized"),
+            input_diar_path=Input(type=AssetTypes.URI_FOLDER, description="Transcriptions of those audios"),
             max_words_in_sentence=Input(type="integer"),
             sentence_ending_punctuations=Input(type="string")
         ),
@@ -212,7 +213,7 @@ def main(
         #ASR
         asr_node = asr_component(
             input_path = input_dts,
-            whisper_model_name=  config_dct['asr']['whisper_model_name'],
+            whisper_model_name = config_dct['asr']['whisper_model_name'],
             beam_size = config_dct['asr']['beam_size'],
             vad_threshold = config_dct['asr']['vad_threshold'],
             min_speech_duration_ms = config_dct['asr']['min_speech_duration_ms'],

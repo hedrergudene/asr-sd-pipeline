@@ -8,13 +8,10 @@ from pathlib import Path
 import os
 import re
 import time
-from typing import List
 import json
-from num2words import num2words
 import torch
 import pandas as pd
 from faster_whisper import WhisperModel
-import whisperx
 
 # Setup logs
 root = log.getLogger()
@@ -91,11 +88,6 @@ def init():
         compute_type=args.compute_type
     )
 
-    global alignment_model, metadata
-    alignment_model, metadata = whisperx.load_align_model(
-        language_code=args.language_code, device=device
-    )
-
 
 def run(mini_batch):
     for elem in mini_batch:
@@ -136,181 +128,44 @@ def run(mini_batch):
                 min_silence_duration_ms=min_silence_duration_ms
             )
         )
-        segs = [{'start':x.start, 'end':x.end, 'text':x.text.strip()} for x in segments]
+        segs = []
+        for x in segments:
+            words = []
+            for word in x.words:
+                words.append(
+                   {
+                      'start':word.start,
+                      'end':word.end,
+                      'text':word.word.strip(),
+                      'confidence': word.probability
+                   }
+                )
+            s = {
+               'start':words[0]['start'],
+               'end':words[-1]['end'],
+               'text':' '.join([w['text'] for w in words]),
+               'confidence': sum([w['confidence'] for w in words])/len([w['confidence'] for w in words])
+            }
+            s['words'] = words
+            segs.append(s)
         transcription_time = time.time()-transcription_time
         log.info(f"\t\tTranscription time: {transcription_time}")
-
-        #
-        # Number decoding
-        #
-        log.info(f"Digits decoding:")
-        decoding_time = time.time()
-        length, ents, seg_dct = 0, [], []
-        for x in segs:
-            text = x.get('text')
-            # Matches that are related to numeric expressions and special symbols
-            regex = r'(?:[0-9]+(?:[-.,][0-9]+)*)'
-            next_match = re.search(r'(?:[0-9]+(?:[-.,][0-9]+)*)', text)
-            while next_match is not None:
-                ts, te, match = next_match.start(), next_match.end(), next_match.group()
-                new_text = match.replace('-', ' ')
-                new_text= ' '.join([num2words(z.replace(',',''), lang=language_code) for z in new_text.split(' ')])
-                if text[next_match.start()-1:next_match.start()]=='$': # Dollars
-                    new_text = new_text+' dólares' if language_code=='es' else new_text+' dollars'
-                    ents.append({'text': new_text, 'pattern':'$'+match, 'start_idx': ts+length-1, 'end_idx': ts+(len(new_text)-1)+length})
-                    text = text[:ts-1] + new_text + text[te:] # As percentage sign goes to the left
-                elif text[next_match.start():next_match.start()+1]=='%': # Percentages
-                    new_text = new_text+' por ciento' if language_code=='es' else new_text+' percent'
-                    ents.append({'text': new_text, 'pattern':match+'%', 'start_idx': ts+length, 'end_idx': ts+(len(new_text)-1)+length+1})
-                    text = text[:ts] + new_text + text[te+1:] # As percentage sign goes to the right
-                else:
-                    ents.append({'text': new_text, 'pattern':match, 'start_idx': ts+length, 'end_idx': ts+len(new_text)+length})
-                    text = text[:ts] + new_text + text[te:]
-                # Modify via shift entities that are after the chosen one
-                shift = len(new_text) -len(match)
-                for ent in [x for x in ents if te<=x['start_idx']]:
-                    ent['start_idx'] += shift
-                    ent['end_idx'] += shift
-                # Restart loop
-                next_match = re.search(r'(?:[0-9]+(?:[-.,][0-9]+)*)', text)
-            # Matches that are related to dots followed and preceded by characters
-            regex=r'(?<=[A-Za-z])\.(?=[A-Za-z])'
-            next_match = re.search(regex, text)
-            new_text = ' punto ' if language_code=='es' else ' dot '
-            while next_match is not None:
-                ts, te, match = next_match.start(), next_match.end(), next_match.group()
-                ents.append({'text': new_text, 'pattern':match, 'start_idx': ts+length, 'end_idx': ts+len(new_text)+length})
-                text = text[:ts] + new_text + text[te:]
-                # Modify via shift entities that are after the chosen one
-                shift = len(new_text) -len(match)
-                for ent in [x for x in ents if te<=x['start_idx']]:
-                    ent['start_idx'] += shift
-                    ent['end_idx'] += shift
-                # Restart loop
-                next_match = re.search(regex, text)
-            # Append modified text
-            seg_dct.append({'start': x['start'], 'end': x['end'], 'text': text})
-            #! BIG UPDATE: ADD +1 TO ALIGN WITH JOINT TEXT
-            length += len(text)+1
-        decoding_time = time.time()-decoding_time
-        log.info(f"\t\tDecoding time: {decoding_time}")
-
-        #
-        # Alignment
-        #
-        log.info(f"\tAlignment:")
-        alignment_time = time.time()
-        result_aligned = whisperx.align(
-            seg_dct,
-            alignment_model,
-            metadata,
-            signal,
-            device
-        )
-        alignment_time = time.time() - alignment_time
-        log.info(f"\t\tAlignment time: {alignment_time}")
-
-        #
-        # Digit (re)encoding
-        #
-        # Add ABSOLUTE start-end indices tokens to aligned output
-        log.info(f"\tDigits (re)encoding:")
-        de_time = time.time()
-        #! BIG UPDATE: Re-encoding based on word-level concatenation
-        aligned_output, length = [], 0
-        for blk in result_aligned['segments']:
-            out = {
-                'start': blk.get('start'),
-                'end': blk.get('end'),
-                'start_idx': length,
-                'end_idx': len(blk['text'])+length,
-                'text': blk.get('text'),
-                'words':[]
-            }
-            shift = 0
-            for word_dct in blk.get('words'):
-                out['words'].append(
-                    {
-                        **word_dct,
-                        **{
-                            'start_idx': shift+length,
-                            'end_idx': len(word_dct['word'])+shift+length
-                        }
-                    }
-                )
-                shift += len(word_dct['word'])+1
-            length += shift
-            aligned_output.append(out)
-        # Merge information
-        shift_global = 0
-        for seg in aligned_output:
-            shift_seg = 0
-            seg['start_idx'], seg['end_idx'] = seg['start_idx']+shift_global, seg['end_idx']+shift_global
-            seg['words'] = [{'word': x['word'], 'start': x['start'], 'end': x['end'], 'score': x['score'], 'start_idx': x['start_idx']+shift_global, 'end_idx': x['end_idx']+shift_global} for x in seg['words']]
-            ents_seg = [x for x in ents if ((seg['start_idx']<=x['start_idx']) & (seg['end_idx']>=x['end_idx']))]
-            if len(ents_seg)>0: ents_seg = [x for x in ents if ((seg['start_idx']<=x['start_idx']) & (seg['end_idx']>=x['end_idx']))]
-            for ent in ents_seg:
-                # Update entity positions...
-                new_text = ent['pattern']+'.' if ent['end_idx']+1==seg['end_idx'] else ent['pattern']
-                ent = {'text': ent['text'], 'pattern': new_text, 'start_idx': ent['start_idx']+shift_seg, 'end_idx': ent['end_idx']+shift_seg}
-                # ...find all words between those positions and compute stats...
-                target_words_begin = [x for x in seg['words'] if ((x['start_idx']>=ent['start_idx']) & (x['start_idx']<ent['end_idx']))]
-                agg_dct = pd.DataFrame(target_words_begin).agg({'start': 'min', 'end': 'max', 'score': 'mean', 'start_idx': 'min', 'end_idx': 'max'}).to_dict()
-                agg_dct['start_idx'] = int(ent['start_idx'])
-                agg_dct['end_idx'] = ent['start_idx']+len(new_text)
-                agg_dct['word'] = new_text
-                shift_ent = len(new_text)-int(len(' '.join([x['word'] for x in target_words_begin])))
-                shift_seg += shift_ent
-                # ...remove decoded words...
-                for x in target_words_begin: seg['words'].remove(x)
-                # ...include new word...
-                seg['words'].append(agg_dct)
-                # ...update next values...
-                target_words_end = [x for x in seg['words'] if x['start_idx']>=ent['end_idx']]
-                for x in target_words_end:
-                    seg['words'].remove(x)
-                    seg['words'].append(
-                        {
-                            'word': x['word'],
-                            'start': x['start'],
-                            'end': x['end'],
-                            'score': x['score'],
-                            'start_idx': x['start_idx']+shift_ent,
-                            'end_idx': x['end_idx']+shift_ent
-                        }
-                    )
-            # ...and update global parameters
-            seg['end_idx'] += len(' '.join([x['word'] for x in seg['words']])) - len(seg['text'])
-            seg['text'] = ' '.join([x['word'] for x in seg['words']])
-            ents = [
-                {
-                    'text': x['text'],
-                    'pattern': x['pattern'],
-                    'start_idx': x['start_idx']+shift_seg,
-                    'end_idx': x['end_idx']+shift_seg
-                } for x in ents
-            ]
-            shift_global += shift_seg
-        de_time = time.time() - de_time
-        log.info(f"\t\tDigit (re)encoding time: {de_time}")
 
         # Build metadata
         mtd = {
             "preprocessing_time": prep_time,
-            "transcription_time": transcription_time,
-            "decoding_time": decoding_time,
-            "alignment_time": alignment_time,
-            "encoding_time": de_time
+            "transcription_time": transcription_time
         }
         # Save output
         with open(os.path.join(output_path, f"{filename}.json"), 'w', encoding='utf8') as f:
             json.dump(
                 {
-                    'segments': aligned_output,
+                    'segments': segs,
                     'duration': librosa.get_duration(y=signal, sr=16000),
                     'metadata': mtd
                 },
                 f,
+                indent=4,
                 ensure_ascii=False
             )
         ## Generate output (filename goes WITHOUT extension, we no longer give a f**k!)
