@@ -121,7 +121,7 @@ def run(mini_batch):
             beam_size=beam_size,
             language=language_code,
             vad_filter=True,
-            word_timestamps=False,
+            word_timestamps=True,
             vad_parameters=dict(
                 threshold=vad_threshold,
                 min_speech_duration_ms=min_speech_duration_ms,

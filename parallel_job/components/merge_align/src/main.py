@@ -291,7 +291,8 @@ def run(mini_batch):
             'w',
             encoding='utf8'
         ) as f:
-            json.dump({
+            json.dump(
+                {
                 'unique_id': filename,
                 'duration': asr_dct['duration'],
                 'processing_time': {
@@ -302,6 +303,10 @@ def run(mini_batch):
                     }
                 },
                 'segments': ssm
-            }, f, ensure_ascii=False)
+            },
+                f,
+                indent=4,
+                ensure_ascii=False
+            )
 
     return mini_batch
