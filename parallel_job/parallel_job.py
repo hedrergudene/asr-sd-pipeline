@@ -99,6 +99,9 @@ def main(
                               "--compute_type ${{inputs.compute_type}} "
                               "--language_code ${{inputs.language_code}} "
                               "--output_path ${{outputs.output_path}} "
+                              f"--allowed_failed_percent {config_dct['job']['allowed_failed_percent']} "
+                              f"--progress_update_timeout {config_dct['job']['progress_update_timeout']} "
+                              f"--task_overhead_timeout {config_dct['job']['task_overhead_timeout']} "
                               f"--first_task_creation_timeout {config_dct['job']['first_task_creation_timeout']} "
                               f"--resource_monitor_interval {config_dct['job']['resource_monitor_interval']} ",
             # All values output by run() method invocations will be aggregated into one unique file which is created in the output location.
@@ -146,6 +149,9 @@ def main(
                               "--event_type ${{inputs.event_type}} "
                               "--max_num_speakers ${{inputs.max_num_speakers}} "
                               "--output_path ${{outputs.output_path}} "
+                              f"--allowed_failed_percent {config_dct['job']['allowed_failed_percent']} "
+                              f"--progress_update_timeout {config_dct['job']['progress_update_timeout']} "
+                              f"--task_overhead_timeout {config_dct['job']['task_overhead_timeout']} "
                               f"--first_task_creation_timeout {config_dct['job']['first_task_creation_timeout']} "
                               f"--resource_monitor_interval {config_dct['job']['resource_monitor_interval']} ",
             # All values output by run() method invocations will be aggregated into one unique file which is created in the output location.
@@ -193,6 +199,9 @@ def main(
                               "--max_words_in_sentence ${{inputs.max_words_in_sentence}} "
                               "--sentence_ending_punctuations ${{inputs.sentence_ending_punctuations}} "
                               "--output_path ${{outputs.output_path}} "
+                              f"--allowed_failed_percent {config_dct['job']['allowed_failed_percent']} "
+                              f"--progress_update_timeout {config_dct['job']['progress_update_timeout']} "
+                              f"--task_overhead_timeout {config_dct['job']['task_overhead_timeout']} "
                               f"--first_task_creation_timeout {config_dct['job']['first_task_creation_timeout']} "
                               f"--resource_monitor_interval {config_dct['job']['resource_monitor_interval']} ",
             # All values output by run() method invocations will be aggregated into one unique file which is created in the output location.

@@ -39,5 +39,8 @@ job:
   error_threshold: 1
   max_retries: 2
   timeout: 3600
-  first_task_creation_timeout: 3000
+  allowed_failed_percent: 0
+  progress_update_timeout: 60000
+  task_overhead_timeout: 3600
+  first_task_creation_timeout: 60000
   resource_monitor_interval: 0
