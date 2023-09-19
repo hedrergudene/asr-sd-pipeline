@@ -1,0 +1,32 @@
+azure:
+  subscription_id : 'XXXXXX'
+  resource_group : 'XXXXXX'
+  aml_workspace_name : 'XXXXXX'
+  project_name : 'ASR-MSDD'
+  computing:
+    cpu_cluster_aml_id : 'cpu-cluster'
+    gpu_cluster_aml_id : 'gpu-cluster'
+  experiment_name : 'asr-msdd-inference'
+
+data:
+  storage_account_name : 'XXXXXX'
+  container_name : 'XXXXXX'
+  blob_path: 'XXXXXX'
+
+asr:
+  whisper_model_name: 'large-v2'
+  num_workers: 4
+  beam_size: 5
+  vad_threshold: 0.5
+  min_speech_duration_ms: 200
+  min_silence_duration_ms: 500
+  language_code: 'es'
+  compute_type: 'float16'
+
+diarization:
+  event_type: 'telephonic' #could also be 'meeting'
+  max_num_speakers: 3
+
+align:
+  max_words_in_sentence: 60
+  sentence_ending_punctuations: '.?!'

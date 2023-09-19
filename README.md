@@ -29,7 +29,7 @@ A technique that makes both ends meet is [forced alignment](https://linguistics.
 
 <img src="images/sphx_glr_forced_alignment_tutorial_005.png"  width="70%" height="70%" style="display: block; margin: 0 auto">
 
-Alignment can only be performed, however, when both model's vocabulary is matched. To overcome this issue, we pay attention to numerical characters, together with special ones (e.g. `$`, `%` or `@`), and preserve their absolute position within the whole transcription to make the reverse problem simpler to solve, as the conversion from characters into words and/or special characters is an $O(n)$ challenge.
+Alignment can only be performed, however, when both model's vocabulary is matched. To overcome this issue, most recent approaches such as Dynamyc Time Warping (DTW) algorithm are applied to cross-attention weights to directly handle Whisper features to enhance word-level timestamps.
 
 <img src="images/special_char.PNG"  width="50%" height="50%" style="display: block; margin: 0 auto">
 
@@ -125,6 +125,7 @@ Despite including and end-to-end solution to model design in AML, the following 
 - [X] Include CTranslate2 engine in ASR components.
 - [X] Improve preprocessing techniques in an individual component to enhance stability.
 - [X] Parallelise processing using distributed, asynchronous clusters.
+- [X] Serialise pipeline implementation to avoid Microsoft bugs on `parallel_run_function`.
 - [X] Enhance benchmark logging and CUDA capabilities checking.
 - [ ] Make sentence alignment more sensitive to short texts.
 

@@ -1,23 +1,6 @@
-# Libraries
-import argparse
-import sys
-import logging as log
-import re
-import json
-import os
-import time
+# Req
 from pathlib import Path
-from deepmultilingualpunctuation import PunctuationModel
-
-# Setup logs
-root = log.getLogger()
-root.setLevel(log.DEBUG)
-handler = log.StreamHandler(sys.stdout)
-handler.setLevel(log.DEBUG)
-formatter = log.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-root.addHandler(handler)
-
+import logging as log
 
 # Helper functions to align sentences with punctuation signs
 def get_word_ts_anchor(s, e, option="mid"):
@@ -36,7 +19,7 @@ def get_words_speaker_mapping(wrd_ts, spk_ts, word_anchor_option="mid"):
         ws, we, wc, wrd = (
             wrd_dict["start"],
             wrd_dict["end"],
-            wrd_dict["score"],
+            wrd_dict["confidence"],
             wrd_dict["word"],
         )
         wrd_pos = get_word_ts_anchor(ws, we, word_anchor_option)
@@ -195,109 +178,3 @@ def get_sentences_speaker_mapping(word_speaker_mapping, spk_ts):
     snt['text'] = snt['text'].strip()
     snts.append(snt)
     return snts
-
-
-#
-# Scoring (entry) script: entry point for execution, scoring script should contain two functions:
-# * init(): this function should be used for any costly or common preparation for subsequent inferences, e.g.,
-#           deserializing and loading the model into a global object.
-# * run(mini_batch): The method to be parallelized. Each invocation will have one minibatch.
-#       * mini_batch: Batch inference will invoke run method and pass either a list or Pandas DataFrame as an argument to the method.
-#                     Each entry in min_batch will be - a filepath if input is a FileDataset, a Pandas DataFrame if input is a TabularDataset.
-#       * return value: run() method should return a Pandas DataFrame or an array.
-#                       For append_row output_action, these returned elements are appended into the common output file.
-#                       For summary_only, the contents of the elements are ignored.
-#                       For all output actions, each returned output element indicates one successful inference of input element in the input mini-batch.
-#
-
-def init():
-    """Init"""
-    # Managed output path to control where objects are returned
-    parser = argparse.ArgumentParser(
-        allow_abbrev=False, description="ParallelRunStep Agent"
-    )
-    parser.add_argument("--input_diar_path", type=str)
-    parser.add_argument("--max_words_in_sentence", type=int, default=40)
-    parser.add_argument("--sentence_ending_punctuations", type=str, default='.?!')
-    parser.add_argument("--output_path", type=str)
-    args, _ = parser.parse_known_args()
-
-    # Params
-    global input_diar_path, max_words_in_sentence, sentence_ending_punctuations, output_path
-    input_diar_path = args.input_diar_path
-    max_words_in_sentence = args.max_words_in_sentence
-    sentence_ending_punctuations = args.sentence_ending_punctuations
-    output_path = args.output_path
-
-    # Folder structure
-    Path(output_path).mkdir(parents=True, exist_ok=True)
-
-    # Punctuation model
-    global punct_model, ending_puncts, model_puncts
-    punct_model = PunctuationModel(model="kredor/punctuate-all")
-    ending_puncts = sentence_ending_punctuations
-    model_puncts = ".,;:!?"
-
-
-def run(mini_batch):
-    for elem in mini_batch: # mini_batch on ASR files
-        # Read file
-        pathdir = Path(elem)
-        filename, _ = os.path.splitext(str(pathdir).split('/')[-1])
-        with open(pathdir, 'r', encoding='utf8') as f:
-            asr_dct = json.load(f)
-        asr_input = [w for s in asr_dct['segments'] for w in s['words']]
-        with open(os.path.join(input_diar_path, f"{filename}.json"), 'r', encoding='utf8') as f:
-            diar_dct = json.load(f)
-        diar_input = [[s['start'], s['end'], s['speaker']] for s in diar_dct['segments']]
-        # Get labels for each piece of text from ASR
-        sm_time = time.time()
-        wsm = get_words_speaker_mapping(asr_input, diar_input)
-        words_list = list(map(lambda x: x["word"], wsm))
-        labled_words = punct_model.predict(words_list)
-        # Acronyms handling
-        is_acronym = lambda x: re.fullmatch(r"\b(?:[a-zA-Z]\.){2,}", x)
-        for word_dict, labeled_tuple in zip(wsm, labled_words):
-            word = word_dict["word"]
-            if (
-                word
-                and labeled_tuple[1] in ending_puncts
-                and (word[-1] not in model_puncts or is_acronym(word))
-            ):
-                word += labeled_tuple[1]
-                if word.endswith(".."):
-                    word = word.rstrip(".")
-                word_dict["word"] = word
-        wsm_final = get_realigned_ws_mapping_with_punctuation(wsm, max_words_in_sentence, sentence_ending_punctuations)
-        ssm = get_sentences_speaker_mapping(wsm_final, diar_input)
-        sm_time = time.time() - sm_time
-        log.info(f"\tSentence-mapping time: {sm_time}")
-
-        # Save output
-        with open(
-            os.path.join(
-                output_path,
-                f"{filename}.json"
-            ),
-            'w',
-            encoding='utf8'
-        ) as f:
-            json.dump(
-                {
-                'unique_id': filename,
-                'duration': asr_dct['duration'],
-                'processing_time': {
-                    **asr_dct['metadata'],
-                    **diar_dct['metadata'],
-                    **{
-                        'sentence_mapping_time': sm_time
-                    }
-                },
-                'segments': ssm
-            },
-                f,
-                indent=4,
-                ensure_ascii=False
-            )
-
-    return mini_batch
