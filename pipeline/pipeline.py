@@ -59,7 +59,6 @@ def main(
     )
     
     # Fetch components
-    read_data_comp = load_component(source="./components/read_data/read_data.yaml")
     asr_inference_comp = load_component(source="./components/asr_inference/asr_inference.yaml")
     diarize_inference_comp = load_component(source=f"./components/diarize_inference/diarize_inference.yaml")
     merge_align_comp = load_component(source=f"./components/merge_align/merge_align.yaml")
