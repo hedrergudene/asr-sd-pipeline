@@ -89,7 +89,7 @@ def main(
             #environment=Environment(
             #    image="mcr.microsoft.com/azureml/curated/acpt-pytorch-2.0-cuda11.7",
             #    conda_file="./components/asr/config/env.yaml",
-            #),            
+            #),
             program_arguments="--whisper_model_name ${{inputs.whisper_model_name}} "
                               "--beam_size ${{inputs.beam_size}} "
                               "--vad_threshold ${{inputs.vad_threshold}} "

@@ -6,6 +6,6 @@ FROM mcr.microsoft.com/azureml/curated/acpt-pytorch-2.0-cuda11.7
 ## ASR
 RUN pip install 'deepmultilingualpunctuation==1.0.1' \
                 'mltable>=1.2.0' \
-                'azureml-dataset-runtime[pandas,fuse]' \
-                'azureml-telemetry' \
-                'azureml-core'
+                'azureml-dataset-runtime[pandas,fuse]==1.53.0' \
+                'azureml-telemetry==1.53.0' \
+                'azureml-core==1.53.0'
