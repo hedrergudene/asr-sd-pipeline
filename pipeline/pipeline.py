@@ -70,7 +70,7 @@ def main(
             log.info(f"Environment for component {x} created.")
             env2version[env_name] = "1"
         else:
-            env2version[env_name] = max([x.version for x in ml_client.environments.list(name=env_name)])
+            env2version[env_name] = str(max([int(x.version) for x in ml_client.environments.list(name=env_name)]))
             log.info(f"Environment for component {x} was found. Latest version is {env2version[env_name]}.")
             if int(env2version[env_name])>1:
                 log.info(f"Updating environment for component {x} to latest version:")
