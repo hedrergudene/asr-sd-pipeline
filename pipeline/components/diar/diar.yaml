@@ -40,8 +40,7 @@ code: ./
 # Environment takes care of source image and dependencies
 # https://learn.microsoft.com/en-us/azure/machine-learning/how-to-manage-environments-v2?view=azureml-api-2&tabs=cli
 environment:
-  build:
-    path: ./docker
+  image: diar_env:1
 
 # Cluster instance
 compute: azureml:gpu-cluster

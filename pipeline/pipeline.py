@@ -1,9 +1,11 @@
 # Libraries
 import yaml
 import sys
+import os
 import logging as log
 from azure.identity import DefaultAzureCredential
 from azure.ai.ml import MLClient, load_component, Input, Output
+from azure.ai.ml.entities import Environment, BuildContext
 from azure.ai.ml.constants import AssetTypes, InputOutputModes
 from azure.ai.ml.dsl import pipeline
 import fire
@@ -40,7 +42,7 @@ def main(
         resource_group_name=config_dct['azure']['resource_group'],
         workspace_name=config_dct['azure']['aml_workspace_name'],
     )
-    
+
     # Define the gpu cluster computations if it is not found
     try:
         cpu_cluster = ml_client.compute.get(config_dct['azure']['computing']['cpu_cluster_aml_id'])
@@ -50,6 +52,34 @@ def main(
         gpu_cluster = ml_client.compute.get(config_dct['azure']['computing']['gpu_cluster_aml_id'])
     except Exception as ex:
         log.error(f"GPU cluster was not found. Introduced parameter is {config_dct['azure']['computing']['gpu_cluster_aml_id']}. Returned error is: {ex.message}")
+
+    # Register environments
+    log.info("Check environments availability:")
+    envs = [x.name for x in ml_client.environments.list()]
+    env2version = {}
+    for x in os.listdir('./components'):
+        env_name = f"{x}_env"
+        if env_name not in envs:
+            log.info(f"Environment for component {x} not found. Creating...")
+            ml_client.environments.create_or_update(
+                Environment(
+                    build=BuildContext(path=f"./components/{x}/docker"),
+                    name=env_name
+                )
+            )
+            log.info(f"Environment for component {x} created.")
+            env2version[env_name] = "1"
+        else:
+            env2version[env_name] = max([x.version for x in ml_client.environments.list(name=env_name)])
+            log.info(f"Environment for component {x} was found. Latest version is {env2version[env_name]}.")
+            if int(env2version[env_name])>1:
+                log.info(f"Updating environment for component {x} to latest version:")
+                with open(f"./components/{x}/{x}.yaml") as fenv:
+                    env_dct = yaml.load(fenv, Loader=yaml.FullLoader)
+                env_dct['environment']['image'] = f"{env_name}:{env2version[env_name]}"
+                with open(f"./components/{x}/{x}.yaml", 'w') as fenv:
+                    yaml.dump(env_dct, fenv)
+                
 
     # Set the input and output URI paths for the data.
     input_audio_data = Input(

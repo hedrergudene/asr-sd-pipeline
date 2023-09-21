@@ -26,6 +26,7 @@ def main(
 ):
 
     # Get credential token
+    log.info("Get credential token:")
     try:
         credential = DefaultAzureCredential()
         credential.get_token("https://management.azure.com/.default")
@@ -34,15 +35,38 @@ def main(
         return (f"Something went wrong regarding authentication. Returned error is: {ex.message}", 500)
     
     # Fetch configuration file
+    log.info("Fetch configuration file:")
     with open(config_path) as file:
         config_dct = yaml.load(file, Loader=yaml.FullLoader)
     # Get a handle to workspace
+    log.info("Set up ML Client:")
     ml_client = MLClient(
         credential=credential,
         subscription_id=config_dct['azure']['subscription_id'],
         resource_group_name=config_dct['azure']['resource_group'],
         workspace_name=config_dct['azure']['aml_workspace_name'],
     )
+
+    # Register environments
+    log.info("Check environments availability:")
+    envs = [x.name for x in ml_client.environments.list()]
+    env2version = {}
+    for x in os.listdir('./components'):
+        env_name = f"{x}_env"
+        if env_name not in envs:
+            log.info(f"Environment for component {x} not found. Creating...")
+            ml_client.environments.create_or_update(
+                Environment(
+                    build=BuildContext(path=f"./components/{x}/docker"),
+                    name=env_name
+                )
+            )
+            log.info(f"Environment for component {x} created.")
+            env2version[env_name] = "1"
+        else:
+            env2version[env_name] = max([x.version for x in ml_client.environments.list(name=env_name)])
+            log.info(f"Environment for component {x} was found. Latest version is {env2version[env_name]}.")
+        
 
     # Set the input and output URI paths for the data.
     input_audio_data = Input(
@@ -84,7 +108,7 @@ def main(
         task=RunFunction(
             code="./components/asr/src",
             entry_script="main.py",
-            environment = Environment(build=BuildContext(path='./components/asr/docker')),
+            environment = Environment(image=f"asr_env:{env2version['asr_env']}"),
             # Alternatively, you can use:
             #environment=Environment(
             #    image="mcr.microsoft.com/azureml/curated/acpt-pytorch-2.0-cuda11.7",
@@ -138,7 +162,7 @@ def main(
         task=RunFunction(
             code="./components/diar/src",
             entry_script="main.py",
-            environment = Environment(build=BuildContext(path='./components/diar/docker')),
+            environment = Environment(image=f"diar_env:{env2version['diar_env']}"),
             # Alternatively, you can use:
             #environment=Environment(
             #    image="mcr.microsoft.com/azureml/curated/acpt-pytorch-2.0-cuda11.7",
@@ -188,7 +212,7 @@ def main(
         task=RunFunction(
             code="./components/merge_align/src",
             entry_script="main.py",
-            environment = Environment(build=BuildContext(path='./components/merge_align/docker')),
+            environment = Environment(image=f"merge_align_env:{env2version['merge_align_env']}"),
             # Alternatively, you can use:
             #environment=Environment(
             #    image="mcr.microsoft.com/azureml/curated/acpt-pytorch-2.0-cuda11.7",
