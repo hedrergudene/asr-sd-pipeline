@@ -23,6 +23,7 @@ inputs:
     min: 1
     max: 32
     default: 1
+    optional: true
   beam_size:
     type: integer
     min: 1

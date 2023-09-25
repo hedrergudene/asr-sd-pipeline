@@ -21,7 +21,7 @@ root.addHandler(handler)
 
 # Main method. Fire automatically allign method arguments with parse commands from console
 def main(
-    config_path:str='./config/asr_msdd_inference_pipeline.yaml'
+    config_path:str='./config/pipeline.yaml'
 ):
 
     # Get credential token
@@ -89,8 +89,8 @@ def main(
     )
     
     # Fetch components
-    asr_inference_comp = load_component(source="./components/asr_inference/asr_inference.yaml")
-    diarize_inference_comp = load_component(source=f"./components/diarize_inference/diarize_inference.yaml")
+    asr_comp = load_component(source="./components/asr/asr.yaml")
+    diar_comp = load_component(source=f"./components/diar/diar.yaml")
     merge_align_comp = load_component(source=f"./components/merge_align/merge_align.yaml")
     
     # Define a pipeline containing the previous nodes
@@ -103,7 +103,7 @@ def main(
         """Multi-speaker speech recognition pipeline."""
 
         # ASR
-        asr_inference_node = asr_inference_comp(
+        asr_node = asr_comp(
             input_path=input_data,
             whisper_model_name=config_dct['asr']['whisper_model_name'],
             num_workers=config_dct['asr']['num_workers'],
@@ -111,24 +111,24 @@ def main(
             vad_threshold=config_dct['asr']['vad_threshold'],
             min_speech_duration_ms=config_dct['asr']['min_speech_duration_ms'],
             min_silence_duration_ms=config_dct['asr']['min_silence_duration_ms'],
-            compute_type = config_dct['asr']['compute_type'],
+            compute_type=config_dct['asr']['compute_type'],
             language_code=config_dct['asr']['language_code']
         )
 
         # MSDD
-        diarize_inference_node = diarize_inference_comp(
+        diar_node = diar_comp(
             input_path=input_data,
-            input_transcriptions = asr_inference_node.outputs.output_path,
+            input_asr_path=asr_node.outputs.output_path,
             event_type=config_dct['diarization']['event_type'],
-            max_num_speakers = config_dct['diarization']['max_num_speakers']
+            max_num_speakers=config_dct['diarization']['max_num_speakers']
         )
 
         # Merge
         merge_align_node= merge_align_comp(
-            input_asr_path=asr_inference_node.outputs.output_path,
-            input_diarizer_path=diarize_inference_node.outputs.output_path,
-            max_words_in_sentence = config_dct['align']['max_words_in_sentence'],
-            sentence_ending_punctuations = config_dct['align']['sentence_ending_punctuations']
+            input_asr_path=asr_node.outputs.output_path,
+            input_diarizer_path=diar_node.outputs.output_path,
+            max_words_in_sentence=config_dct['align']['max_words_in_sentence'],
+            sentence_ending_punctuations=config_dct['align']['sentence_ending_punctuations']
         )
 
         return {
