@@ -6,7 +6,7 @@ import logging as log
 from azure.identity import DefaultAzureCredential
 from azure.ai.ml import MLClient, Input, Output
 from azure.ai.ml.dsl import pipeline
-from azure.ai.ml.entities import Environment, BuildContext
+from azure.ai.ml.entities import Environment, BuildContext, BatchRetrySettings
 from azure.ai.ml.constants import AssetTypes, InputOutputModes
 from azure.ai.ml.parallel import parallel_run_function, RunFunction
 import fire
@@ -101,7 +101,7 @@ def main(
         mini_batch_error_threshold=config_dct['job']['mini_batch_error_threshold'],
         logging_level="DEBUG",
         error_threshold=config_dct['job']['error_threshold'],
-        retry_settings=dict(
+        retry_settings=BatchRetrySettings(
             max_retries=config_dct['job']['max_retries'],
             timeout=config_dct['job']['timeout']
         ), 
@@ -155,7 +155,7 @@ def main(
         mini_batch_error_threshold=config_dct['job']['mini_batch_error_threshold'],
         logging_level="DEBUG",
         error_threshold=config_dct['job']['error_threshold'],
-        retry_settings=dict(
+        retry_settings=BatchRetrySettings(
             max_retries=config_dct['job']['max_retries'],
             timeout=config_dct['job']['timeout']
         ), 
@@ -205,7 +205,7 @@ def main(
         mini_batch_error_threshold=config_dct['job']['mini_batch_error_threshold'],
         logging_level="DEBUG",
         error_threshold=config_dct['job']['error_threshold'],
-        retry_settings=dict(
+        retry_settings=BatchRetrySettings(
             max_retries=config_dct['job']['max_retries'],
             timeout=config_dct['job']['timeout']
         ), 

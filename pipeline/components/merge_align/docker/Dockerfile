@@ -11,4 +11,4 @@ RUN pip install 'azureml-core==1.47.0' \
                 'deepmultilingualpunctuation==1.0.1' \
                 'protobuf==3.20.0' \
                 'pyyaml==5.4.1' \
-                'fire==0.4.0'
+                'fire==0.5.0'
