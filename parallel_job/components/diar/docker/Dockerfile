@@ -1,5 +1,5 @@
 # Base image (check CUDA version is the same as PyTorch one)
-FROM nvcr.io/nvidia/nemo:23.01
+FROM nvcr.io/nvidia/nemo:23.06
 
 # Install pip dependencies
 ## Diarization
