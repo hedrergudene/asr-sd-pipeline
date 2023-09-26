@@ -20,7 +20,7 @@ def get_words_speaker_mapping(wrd_ts, spk_ts, word_anchor_option="mid"):
             wrd_dict["start"],
             wrd_dict["end"],
             wrd_dict["confidence"],
-            wrd_dict["word"],
+            wrd_dict["text"],
         )
         wrd_pos = get_word_ts_anchor(ws, we, word_anchor_option)
         while wrd_pos > float(e):
