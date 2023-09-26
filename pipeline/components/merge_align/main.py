@@ -65,7 +65,7 @@ def main(
                     word = word.rstrip(".")
                 word_dict["word"] = word
         wsm_final = get_realigned_ws_mapping_with_punctuation(wsm, max_words_in_sentence, sentence_ending_punctuations)
-        ssm = get_sentences_speaker_mapping(wsm_final, diar_dct)
+        ssm = get_sentences_speaker_mapping(wsm_final, diar_input)
         sm_time = time.time() - sm_time
         log.info(f"\tSentence-mapping time: {sm_time}")
 
