@@ -87,7 +87,6 @@ def main(
 
 
     word_ts = {}
-    asr_vad_manifest = []
 
     # Set up input
     f = Path(input_path)
@@ -118,27 +117,22 @@ def main(
             x = json.load(f)['segments']
         word_ts[filename] = [[w['start'],w['end']] for s in x for w in s['words']]
         # Fetch VAD info
-        asr_vad_manifest += create_asr_vad_config(x, f'./input_audios/{filename}.wav', filename)
-    # Create ./nemo_output/asr_vad_manifest.json
-    if os.path.exists("./nemo_output/asr_vad_manifest.jsonl"): os.remove("./nemo_output/asr_vad_manifest.jsonl")
-    with open("./nemo_output/asr_vad_manifest.jsonl", "w") as fp:
-        for line in asr_vad_manifest:
-            json.dump(line, fp)
-            fp.write('\n')
+        asr_vad_manifest = create_asr_vad_config(x, f'./input_audios/{filename}.wav', filename)
+        # Create ./nemo_output/asr_vad_manifest.json
+        if os.path.exists("./nemo_output/asr_vad_manifest.jsonl"): os.remove("./nemo_output/asr_vad_manifest.jsonl")
+        with open("./nemo_output/asr_vad_manifest.jsonl", "w") as fp:
+            for line in asr_vad_manifest:
+                json.dump(line, fp)
+                fp.write('\n')
 
-    #
-    # Speaker diarization
-    #
-    log.info(f"Read NeMo MSDD configuration file:")
-    filepaths = [os.path.join('./input_audios',x) for x in os.listdir('./input_audios')]
-
-    # Diarization
-    log.info(f"Run diarization")
-    for f in filepaths:
+        #
+        # Speaker diarization
+        #
+        log.info(f"Run diarization")
         diar_time = time.time()
-        create_msdd_config([f]) # initialise msdd cfg
-        msdd_model.audio_file_list = [f] # update audios list
-        diar_hyp, _ = msdd_model.run_diarization(msdd_cfg, word_ts)
+        create_msdd_config([f"./input_audios/{filename}.wav"]) # initialise msdd cfg
+        msdd_model.audio_file_list = [f"{filename}.wav"] # update audios list
+        diar_hyp, _ = msdd_model.run_diarization(msdd_cfg, {filename:word_ts[filename]})
         diar_time = time.time() - diar_time
         log.info(f"\tDiarization time: {diar_time}")
         # Process diarization output
@@ -157,8 +151,8 @@ def main(
                     ensure_ascii=False
                 )
             os.remove(f"./input_audios/{x['filename']}.wav")
-    log.info(f"Cleanup resources")
-    delete_files_in_directory_and_subdirectories('./nemo_output')
+        log.info(f"Cleanup resources")
+        delete_files_in_directory_and_subdirectories('./nemo_output')
 
 
 if __name__=="__main__":
