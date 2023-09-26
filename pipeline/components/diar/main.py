@@ -131,7 +131,7 @@ def main(
         log.info(f"Run diarization")
         diar_time = time.time()
         create_msdd_config([f"./input_audios/{filename}.wav"]) # initialise msdd cfg
-        msdd_model.audio_file_list = [f"{filename}.wav"] # update audios list
+        msdd_model.audio_file_list = [f"./input_audios/{filename}.wav"] # update audios list
         diar_hyp, _ = msdd_model.run_diarization(msdd_cfg, {filename:word_ts[filename]})
         diar_time = time.time() - diar_time
         log.info(f"\tDiarization time: {diar_time}")

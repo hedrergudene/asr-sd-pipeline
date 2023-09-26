@@ -172,7 +172,7 @@ def run(mini_batch):
             diar_time = time.time()
             unique_id = f.split('/')[-1].split('.')[0]
             create_msdd_config([f]) # initialise msdd cfg
-            msdd_model.audio_file_list = [f"{unique_id}.wav"] # update audios list
+            msdd_model.audio_file_list = [f] # update audios list
             diar_hyp, _ = msdd_model.run_diarization(msdd_cfg, {unique_id:word_ts[unique_id]})
             diar_time = time.time() - diar_time
             log.info(f"\tDiarization time: {diar_time}")
