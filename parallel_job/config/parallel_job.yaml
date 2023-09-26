@@ -7,11 +7,7 @@ azure:
     cpu_cluster_aml_id : 'cpu-cluster'
     gpu_cluster_aml_id : 'gpu-cluster'
   experiment_name : 'asr-msdd-inference'
-
-data:
-  storage_account_name : 'XXXXXX'
-  container_name : 'XXXXXX'
-  blob_path: 'XXXXXX'
+  data_filepath: 'XXXXXX'
 
 asr:
   whisper_model_name: 'large-v2'

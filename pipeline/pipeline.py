@@ -83,7 +83,7 @@ def main(
 
     # Set the input and output URI paths for the data.
     input_audio_data = Input(
-        path=f"wasbs://{config_dct['data']['container_name']}@{config_dct['data']['storage_account_name']}.blob.core.windows.net/{config_dct['data']['blob_path']}",
+        path=config_dct['azure']['data_filepath'],
         type=AssetTypes.URI_FOLDER,
         mode=InputOutputModes.RO_MOUNT #Alternative, DOWNLOAD
     )
