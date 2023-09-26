@@ -114,6 +114,7 @@ def init():
     ## Read NeMo MSDD configuration file
     msdd_cfg = OmegaConf.load(f'./input/diar_infer_{args.event_type}.yaml')
     msdd_cfg.diarizer.clustering.parameters.max_num_speakers = args.max_num_speakers
+    msdd_cfg.diarizer.vad.external_vad_manifest='./nemo_output/asr_vad_manifest.json'
     msdd_cfg.diarizer.asr.parameters.asr_based_vad = True
     create_msdd_config(['sample_audio.wav']) # initialise msdd cfg
     ## Initialize NeMo MSDD diarization model
@@ -151,8 +152,8 @@ def run(mini_batch):
         # Fetch VAD info
         asr_vad_manifest += create_asr_vad_config(x, f'./input_audios/{filename}.wav', filename)
     # Create ./nemo_output/asr_vad_manifest.json
-    if os.path.exists("./nemo_output/asr_vad_manifest.json"): os.remove("./nemo_output/asr_vad_manifest.json")
-    with open("./nemo_output/asr_vad_manifest.json", "w") as fp:
+    if os.path.exists("./nemo_output/asr_vad_manifest.jsonl"): os.remove("./nemo_output/asr_vad_manifest.jsonl")
+    with open("./nemo_output/asr_vad_manifest.jsonl", "w") as fp:
         for line in asr_vad_manifest:
             json.dump(line, fp)
             fp.write('\n')
