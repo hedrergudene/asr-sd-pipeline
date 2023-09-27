@@ -9,4 +9,5 @@ RUN pip install 'azureml-core==1.47.0' \
                 'soundfile==0.12.1' \
                 'cloudpickle==1.1.1' \
                 'librosa==0.10.1' \
+                'audiofile==1.3.0' \
                 'fire==0.5.0'
