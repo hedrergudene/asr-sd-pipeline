@@ -133,6 +133,36 @@ def run(mini_batch):
             continue
         log.info("Processing file {}".format(pathdir))
 
+        # Read word-level transcription to fetch timestamps
+        with open(os.path.join(input_asr_path, f"{filename}.json"), 'r', encoding='utf-8') as f:
+            x = json.load(f)['segments']
+        # Ensure audio is not silent
+        if len(x)==0:
+            log.info(f"Audio {filename} does not contain segments. Dumping dummy file and skipping:")
+            with open(os.path.join(output_path, f"{filename}.json"), 'w', encoding='utf8') as f:
+                json.dump(
+                    {
+                        'segments': [],
+                        'metadata': {
+                            'diarization_time': 0
+                        }
+                    },
+                    f,
+                    indent=4,
+                    ensure_ascii=False
+                )
+            continue
+        # Word-level timestamps
+        word_ts[filename] = [[w['start'],w['end']] for s in x for w in s['words']]
+        # Fetch VAD info
+        asr_vad_manifest = create_asr_vad_config(x, f'./input_audios/{filename}.wav', filename)
+        # Create ./nemo_output/asr_vad_manifest.json
+        if os.path.exists("./nemo_output/asr_vad_manifest.jsonl"): os.remove("./nemo_output/asr_vad_manifest.jsonl")
+        with open("./nemo_output/asr_vad_manifest.jsonl", "w") as fp:
+            for line in asr_vad_manifest:
+                json.dump(line, fp)
+                fp.write('\n')
+
         # Preprocessing
         log.info(f"\tConvert to 16kHz mono")
         prep_time = time.time()
@@ -145,56 +175,31 @@ def run(mini_batch):
         prep_time = time.time() - prep_time
         log.info(f"\t\tPrep. time: {prep_time}")
 
-        # Read word-level transcription to fetch timestamps
-        with open(os.path.join(input_asr_path, f"{filename}.json"), 'r', encoding='utf-8') as f:
-            x = json.load(f)['segments']
-        word_ts[filename] = [[w['start'],w['end']] for s in x for w in s['words']]
-        # Fetch VAD info
-        asr_vad_manifest += create_asr_vad_config(x, f'./input_audios/{filename}.wav', filename)
-    # Create ./nemo_output/asr_vad_manifest.json
-    if os.path.exists("./nemo_output/asr_vad_manifest.jsonl"): os.remove("./nemo_output/asr_vad_manifest.jsonl")
-    with open("./nemo_output/asr_vad_manifest.jsonl", "w") as fp:
-        for line in asr_vad_manifest:
-            json.dump(line, fp)
-            fp.write('\n')
-
-    #
-    # Speaker diarization
-    #
-    if len(os.listdir('./input_audios'))>0:
-        # Read cfg
-        log.info(f"Read NeMo MSDD configuration file:")
-        filepaths = [os.path.join('./input_audios',x) for x in os.listdir('./input_audios')]
-
-        # Diarization
+        #
+        # Speaker diarization
+        #
         log.info(f"Run diarization")
-        for f in filepaths:
-            diar_time = time.time()
-            unique_id = f.split('/')[-1].split('.')[0]
-            create_msdd_config([f]) # initialise msdd cfg
-            msdd_model.audio_file_list = [f] # update audios list
-            diar_hyp, _ = msdd_model.run_diarization(msdd_cfg, {unique_id:word_ts[unique_id]})
-            diar_time = time.time() - diar_time
-            log.info(f"\tDiarization time: {diar_time}")
-            # Process diarization output
-            log.info(f"Save outputs")
-            for x in process_NeMo_output(diar_hyp):
-                with open(os.path.join(output_path, f"{x['filename']}.json"), 'w', encoding='utf8') as f:
-                    json.dump(
-                        {
-                            'segments': x['segments'],
-                            'metadata': {
-                                'diarization_time': diar_time
-                            }
-                        },
-                        f,
-                        indent=4,
-                        ensure_ascii=False
-                    )
-        log.info(f"Cleanup resources")
-        delete_files_in_directory_and_subdirectories('./input_audios')
-        delete_files_in_directory_and_subdirectories('./nemo_output')
-    else:
+        diar_time = time.time()
+        create_msdd_config([f'./input_audios/{filename}.wav']) # initialise msdd cfg
+        msdd_model.audio_file_list = [f"./input_audios/{filename}.wav"] # update audios list
+        diar_hyp, _ = msdd_model.run_diarization(msdd_cfg, {filename:word_ts[filename]})
+        diar_time = time.time() - diar_time
+        log.info(f"\tDiarization time: {diar_time}")
+        # Process diarization output
+        log.info(f"Save outputs")
+        for x in process_NeMo_output(diar_hyp):
+            with open(os.path.join(output_path, f"{x['filename']}.json"), 'w', encoding='utf8') as f:
+                json.dump(
+                    {
+                        'segments': x['segments'],
+                        'metadata': {
+                            'diarization_time': diar_time
+                        }
+                    },
+                    f,
+                    indent=4,
+                    ensure_ascii=False
+                )
         log.info(f"Cleanup resources")
         delete_files_in_directory_and_subdirectories('./input_audios')
         delete_files_in_directory_and_subdirectories('./nemo_output')

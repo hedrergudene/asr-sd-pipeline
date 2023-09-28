@@ -85,10 +85,7 @@ def main(
     create_msdd_config(['sample_audio.wav']) # initialise msdd cfg
     ## Initialize NeMo MSDD diarization model
     msdd_model = OfflineDiarWithASR(msdd_cfg.diarizer)
-
-
     word_ts = {}
-
     # Set up input
     f = Path(input_path)
     files = list(f.iterdir())
@@ -100,6 +97,36 @@ def main(
             log.info("Skipping file {}".format(pathdir))
             continue
         log.info("Processing file {}".format(pathdir))
+    
+        # Read word-level transcription to fetch timestamps
+        with open(os.path.join(input_asr_path, f"{filename}.json"), 'r', encoding='utf-8') as f:
+            x = json.load(f)['segments']
+        # Ensure audio is not silent
+        if len(x)==0:
+            log.info(f"Audio {filename} does not contain segments. Dumping dummy file and skipping:")
+            with open(os.path.join(output_path, f"{filename}.json"), 'w', encoding='utf8') as f:
+                json.dump(
+                    {
+                        'segments': [],
+                        'metadata': {
+                            'diarization_time': 0
+                        }
+                    },
+                    f,
+                    indent=4,
+                    ensure_ascii=False
+                )
+            continue
+        # Word-level timestamps
+        word_ts[filename] = [[w['start'],w['end']] for s in x for w in s['words']]
+        # Fetch VAD info
+        asr_vad_manifest = create_asr_vad_config(x, f'./input_audios/{filename}.wav', filename)
+        # Create ./nemo_output/asr_vad_manifest.json
+        if os.path.exists("./nemo_output/asr_vad_manifest.jsonl"): os.remove("./nemo_output/asr_vad_manifest.jsonl")
+        with open("./nemo_output/asr_vad_manifest.jsonl", "w") as fp:
+            for line in asr_vad_manifest:
+                json.dump(line, fp)
+                fp.write('\n')
 
         # Preprocessing
         log.info(f"\tConvert to 16kHz mono")
@@ -112,19 +139,6 @@ def main(
         sf.write(f'./input_audios/{filename}.wav', np.ravel(signal), 16000, 'PCM_24') # save in tmp path as 16kHz, mono
         prep_time = time.time() - prep_time
         log.info(f"\t\tPrep. time: {prep_time}")
-
-        # Read word-level transcription to fetch timestamps
-        with open(os.path.join(input_asr_path, f"{filename}.json"), 'r', encoding='utf-8') as f:
-            x = json.load(f)['segments']
-        word_ts[filename] = [[w['start'],w['end']] for s in x for w in s['words']]
-        # Fetch VAD info
-        asr_vad_manifest = create_asr_vad_config(x, f'./input_audios/{filename}.wav', filename)
-        # Create ./nemo_output/asr_vad_manifest.json
-        if os.path.exists("./nemo_output/asr_vad_manifest.jsonl"): os.remove("./nemo_output/asr_vad_manifest.jsonl")
-        with open("./nemo_output/asr_vad_manifest.jsonl", "w") as fp:
-            for line in asr_vad_manifest:
-                json.dump(line, fp)
-                fp.write('\n')
 
         #
         # Speaker diarization
