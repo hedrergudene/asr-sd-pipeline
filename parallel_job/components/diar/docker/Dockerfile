@@ -9,6 +9,6 @@ RUN pip install 'mltable>=1.2.0' \
                 'azureml-telemetry==1.53.0' \
                 'azureml-core==1.53.0' \
                 'cloudpickle==1.1.1' \
-                'librosa==0.10.1' \
                 'soundfile==0.12.1' \
-                'audiofile==1.3.0' \
+                'librosa==0.10.1' \
+                'audiofile==1.3.0'

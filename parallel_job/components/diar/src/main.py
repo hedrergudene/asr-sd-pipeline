@@ -11,8 +11,8 @@ import json
 import time
 from typing import List
 import json
+import numpy as np
 import torch
-import pandas as pd
 from nemo.collections.asr.parts.utils.diarization_utils import OfflineDiarWithASR
 from omegaconf import OmegaConf
 
@@ -141,7 +141,7 @@ def run(mini_batch):
             signal = librosa.resample(signal, orig_sr=sample_rate, target_sr=16000)
         if len(signal.shape)>1: # Set num_channels
             signal = librosa.to_mono(signal)
-        sf.write(f'./input_audios/{filename}.wav', signal, 16000, 'PCM_24') # save in tmp path as 16kHz, mono
+        sf.write(f'./input_audios/{filename}.wav', np.ravel(signal), 16000, 'PCM_24') # save in tmp path as 16kHz, mono
         prep_time = time.time() - prep_time
         log.info(f"\t\tPrep. time: {prep_time}")
 
