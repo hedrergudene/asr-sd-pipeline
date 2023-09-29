@@ -11,6 +11,7 @@ azure:
 
 asr:
   whisper_model_name: 'large-v2'
+  align_model_name: 'jonatasgrosman/wav2vec2-large-xlsr-53-spanish'
   num_workers: 4
   beam_size: 5
   vad_threshold: 0.5
