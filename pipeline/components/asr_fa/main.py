@@ -298,7 +298,14 @@ def main(
                         'end_idx': x['end_idx']+shift_seg
                     } for x in entities
                 ]
-                shift_global += shift_seg          
+                shift_global += shift_seg
+        # Cleanup indices
+        for x in ao:
+            x.pop('start_idx')
+            x.pop('end_idx')
+            for w in x['words']:
+                w.pop('start_idx')
+                w.pop('end_idx')
         de_time = time.time() - de_time
         log.info(f"\t\tDigit (re)encoding time: {de_time}")
         # Build metadata
@@ -310,16 +317,11 @@ def main(
             "encoding_time": de_time
         }
 
-        # Build metadata
-        mtd = {
-            "preprocessing_time": prep_time,
-            "transcription_time": transcription_time
-        }
         # Save output
         with open(os.path.join(output_path, f"{filename}.json"), 'w', encoding='utf8') as f:
             json.dump(
                 {
-                    'segments': segs,
+                    'segments': ao,
                     'duration': librosa.get_duration(y=signal, sr=16000),
                     'metadata': mtd
                 },
