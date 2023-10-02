@@ -135,7 +135,7 @@ def main(
                 min_silence_duration_ms=min_silence_duration_ms
             )
         )
-        segs = [{'start': x['start'], 'end': x['end'], 'text': x['text']} for x in segments]
+        segs = [{'start': x.start, 'end': x.end, 'text': x.text} for x in segments]
 
         transcription_time = time.time()-transcription_time
         log.info(f"\t\tTranscription time: {transcription_time}")
@@ -151,7 +151,7 @@ def main(
         for x in segs:
             text = x.get('text')
             # Matches that are related to numeric expressions in which numbers are divided by "." or ","
-            text = re.sub(r'(\d) (\W)', r'\1\2', text)
+            text = re.sub(r'(\d) (?=[^\d\s])', r'\1', text)
             # Matches that are related to numeric expressions and special symbols
             regex = r'(?:[0-9]+(?:[-.,][0-9]+)*)'
             next_match = re.search(regex, text)
@@ -202,7 +202,7 @@ def main(
         #
         # Alignment
         #
-        log.info(f"\tAlignment:")
+        log.debug(f"\tAlignment:")
         alignment_time = time.time()
         result_aligned = whisperx.align(
             seg_dct,
@@ -212,13 +212,13 @@ def main(
             device
         )
         alignment_time = time.time() - alignment_time
-        log.info(f"\t\tAlignment time: {alignment_time}")
+        log.debug(f"\t\tAlignment time: {alignment_time}")
 
         #
         # Digit (re)encoding
         #
         # Add ABSOLUTE start-end indices tokens to aligned output
-        log.info(f"\tDigits (re)encoding:")
+        log.debug(f"\tDigits (re)encoding:")
         de_time = time.time()
         #! BIG UPDATE: Re-encoding based on word-level concatenation
         aligned_output, length = [], 0
@@ -252,17 +252,24 @@ def main(
         for seg in ao:
             shift_seg = 0
             seg['start_idx'], seg['end_idx'] = seg['start_idx']+shift_global, seg['end_idx']+shift_global
-            seg['words'] = [{'word': x['word'], 'start': x['start'], 'end': x['end'], 'score': x['score'], 'start_idx': x['start_idx']+shift_global, 'end_idx': x['end_idx']+shift_global} for x in seg['words' ]]
+            seg['words'] = [{
+                'word': x['word'],
+                'start': x['start'],
+                'end': x['end'],
+                'score': x['score'],
+                'start_idx': x['start_idx']+shift_global,
+                'end_idx': x['end_idx']+shift_global
+            } for x in seg['words' ]]
             ents_seg = [x for x in entities if ((seg['start_idx']<=x['start_idx']) & (seg['end_idx']>=x['end_idx']))]
             if len(ents_seg)>0:
-                print(f"Segment {seg['text']} with sidx {seg['start_idx']} and eidx {seg['end_idx']}. Entities {ents_seg}")
+                log.debug(f"Segment {seg['text']} with sidx {seg['start_idx']} and eidx {seg['end_idx']}. Entities {ents_seg}")
                 ents_seg = [x.to_dict() for _, x in pd.DataFrame(ents_seg).sort_values(by='start_idx').iterrows()]
                 for ent in ents_seg:
-                    print(f"\tAnalysing entity {ent['text']} matched with pattern {ent['pattern']} with sidx {ent['start_idx']} and eidx {ent['end_idx']}")
+                    log.debug(f"\tAnalysing entity {ent['text']} matched with pattern {ent['pattern']} with sidx {ent['start_idx']} and eidx {ent['end_idx']}")
                     # Update entity positions...
                     ent = {'text': ent['text'], 'pattern': ent['pattern'], 'start_idx': ent['start_idx']+shift_seg, 'end_idx': ent['end_idx']+shift_seg}
                     # ...find all words between those positions and compute stats...
-                    target_words_begin = [x for x in seg['words'] if ((x['start_idx']>=ent['start_idx']) & (x['start_idx']<ent['end_idx']))]
+                    target_words_begin = [x for x in seg['words'] if ((x['end_idx']>=ent['start_idx']) & (x['start_idx']<=ent['end_idx']))]
                     agg_dct = pd.DataFrame(target_words_begin).agg({'start': 'min', 'end': 'max', 'score': 'mean', 'start_idx': 'min', 'end_idx': 'max'}).to_dict()
                     agg_dct['start_idx'] = int(ent['start_idx'])
                     agg_dct['word'] = re.sub(ent['text'], ent['pattern'],' '.join([x['word'] for x in target_words_begin]))
@@ -307,7 +314,7 @@ def main(
                 w.pop('start_idx')
                 w.pop('end_idx')
         de_time = time.time() - de_time
-        log.info(f"\t\tDigit (re)encoding time: {de_time}")
+        log.debug(f"\t\tDigit (re)encoding time: {de_time}")
         # Build metadata
         mtd = {
             "preprocessing_time": prep_time,
