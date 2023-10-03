@@ -12,6 +12,7 @@ import pandas as pd
 import torch
 import librosa
 from num2words import num2words
+from decimal import InvalidOperation, Inexact, DivisionByZero, Overflow
 from faster_whisper import WhisperModel
 import whisperx
 import fire
@@ -102,12 +103,12 @@ def main(
         # Read file
         filename, extension = os.path.splitext(str(pathdir).split('/')[-1])
         if extension not in ['.wav', '.mp3']:
-            log.info("Skipping file {}".format(pathdir))
+            log.debug("Skipping file {}".format(pathdir))
             continue
-        log.info("Processing file {}".format(pathdir))
+        log.debug("Processing file {}".format(pathdir))
 
         # Preprocessing
-        log.info(f"\tConvert to 16kHz mono")
+        log.debug(f"\tConvert to 16kHz mono")
         prep_time = time.time()
         signal, sample_rate = librosa.load(pathdir, sr=None) # load audio from storage
         if sample_rate!=16000: # Set sample_rate
@@ -116,12 +117,12 @@ def main(
             signal = librosa.to_mono(signal)
         #sf.write(f'./input_audios/{filename}.wav', signal, 16000, 'PCM_24') # save in tmp path as 16kHz, mono
         prep_time = time.time() - prep_time
-        log.info(f"\t\tPrep. time: {prep_time}")
+        log.debug(f"\t\tPrep. time: {prep_time}")
 
         #
         # Transcription
         #
-        log.info(f"\tASR:")
+        log.debug(f"\tASR:")
         transcription_time = time.time()
         segments, _ = whisper_model.transcribe(
             signal,
@@ -138,27 +139,31 @@ def main(
         segs = [{'start': x.start, 'end': x.end, 'text': x.text} for x in segments]
 
         transcription_time = time.time()-transcription_time
-        log.info(f"\t\tTranscription time: {transcription_time}")
+        log.debug(f"\t\tTranscription time: {transcription_time}")
 
+        log.debug('Word-level forced alignment:')
         #
-        # Forced alignment
-        #
-        log.info('Word-level forced alignment:')
         # Number decoding
-        log.info(f"Digits decoding:")
+        #
+        log.debug(f"Digits decoding:")
         decoding_time = time.time()
         length, ents, seg_dct = 0, [], []
         for x in segs:
             text = x.get('text')
-            # Matches that are related to numeric expressions in which numbers are divided by "." or ","
-            text = re.sub(r'(\d) (?=[^\d\s])', r'\1', text)
+            # Remove spaces before commas and dots
+            text = re.sub(r'\s+([.,])', r'\1', text)
+            # Remove spaces before percentage signs
+            text = re.sub(r'\s+(%)', r'\1', text)
             # Matches that are related to numeric expressions and special symbols
-            regex = r'(?:[0-9]+(?:[-.,][0-9]+)*)'
+            regex = r'\b\d{1,3}(?:,\d{3})*(?:\.\d+)?\b'
             next_match = re.search(regex, text)
             while next_match is not None:
                 ts, te, match = next_match.start(), next_match.end(), next_match.group()
-                new_text = match.replace('-', ' ')
-                new_text= ' '.join([num2words(z.replace(',',''), lang=language_code) for z in new_text.split(' ')])
+                try:
+                    new_text= ' '.join([num2words(z.replace(',',''), lang=language_code) for z in new_text.split(' ')])
+                except InvalidOperation:
+                    log.debug(f"Pattern {match} not identified as numeric. Decomposing it into numeric chunks:")
+                    new_text = re.sub(r'[^0-9]', ' ', new_text)
                 if text[next_match.start()-1:next_match.start()]=='$': # Dollars
                     new_text = new_text+' dólares' if language_code=='es' else new_text+' dollars'
                     ents.append({'text': new_text, 'pattern':'$'+match, 'start_idx': ts+length-1, 'end_idx': ts+(len(new_text)-1)+length})
@@ -170,6 +175,23 @@ def main(
                 else:
                     ents.append({'text': new_text, 'pattern':match, 'start_idx': ts+length, 'end_idx': ts+len(new_text)+length})
                     text = text[:ts] + new_text + text[te:]
+                # Modify via shift entities that are after the chosen one
+                shift = len(new_text) -len(match)
+                for ent in [x for x in ents if (te+length)<=x['start_idx']]:
+                    ent['start_idx'] += shift
+                    ent['end_idx'] += shift
+                # Restart loop
+                next_match = re.search(regex, text)
+            # Matches that are related to "-" surrounded by digits
+            regex = r'\b\d+(?:-\d+)+\b'
+            next_match = re.search(regex, text)
+            while next_match is not None:
+                ts, te, match = next_match.start(), next_match.end(), next_match.group()
+                new_text = match.replace('-', ' ')
+                try:
+                    new_text= ' '.join([num2words(z.replace(',',''), lang=language_code) for z in new_text.split(' ')])
+                except InvalidOperation:
+                    log.debug(f"Pattern {match} not identified as numeric. Decomposing it into numeric chunks:")
                 # Modify via shift entities that are after the chosen one
                 shift = len(new_text) -len(match)
                 for ent in [x for x in ents if (te+length)<=x['start_idx']]:
@@ -197,7 +219,7 @@ def main(
             #! BIG UPDATE: ADD +1 TO ALIGN WITH JOINT TEXT
             length += len(text)+1
         decoding_time = time.time()-decoding_time
-        log.info(f"\t\tDecoding time: {decoding_time}")
+        log.debug(f"\t\tDecoding time: {decoding_time}")
 
         #
         # Alignment
