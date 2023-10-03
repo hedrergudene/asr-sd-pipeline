@@ -8,12 +8,12 @@ import os
 import sys
 import json
 from pathlib import Path
+import numpy as np
 import pandas as pd
 import torch
 import librosa
 from num2words import num2words
 from decimal import InvalidOperation, Inexact, DivisionByZero, Overflow
-from faster_whisper import WhisperModel
 import whisperx
 import fire
 
@@ -64,14 +64,8 @@ def delete_files_in_directory_and_subdirectories(directory_path):
 # Main method. Fire automatically allign method arguments with parse commands from console
 def main(
     input_path,
-    whisper_model_name,
+    input_asr_path,
     align_model_name,
-    num_workers,
-    beam_size,
-    vad_threshold,
-    min_speech_duration_ms,
-    min_silence_duration_ms,
-    compute_type,
     language_code,
     output_path
 ):
@@ -82,13 +76,6 @@ def main(
     # Params
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    # ASR model
-    whisper_model = WhisperModel(
-        model_size_or_path = whisper_model_name,
-        device=device,
-        compute_type=compute_type,
-        num_workers=num_workers
-    )
     alignment_model, metadata = whisperx.load_align_model(
             language_code = language_code,
             model_name = align_model_name,
@@ -103,12 +90,12 @@ def main(
         # Read file
         filename, extension = os.path.splitext(str(pathdir).split('/')[-1])
         if extension not in ['.wav', '.mp3']:
-            log.debug("Skipping file {}".format(pathdir))
+            log.info("Skipping file {}".format(pathdir))
             continue
-        log.debug("Processing file {}".format(pathdir))
+        log.info("Processing file {}".format(pathdir))
 
         # Preprocessing
-        log.debug(f"\tConvert to 16kHz mono")
+        log.info(f"\tConvert to 16kHz mono")
         prep_time = time.time()
         signal, sample_rate = librosa.load(pathdir, sr=None) # load audio from storage
         if sample_rate!=16000: # Set sample_rate
@@ -117,31 +104,16 @@ def main(
             signal = librosa.to_mono(signal)
         #sf.write(f'./input_audios/{filename}.wav', signal, 16000, 'PCM_24') # save in tmp path as 16kHz, mono
         prep_time = time.time() - prep_time
-        log.debug(f"\t\tPrep. time: {prep_time}")
+        log.info(f"\t\tPrep. time: {prep_time}")
 
         #
-        # Transcription
+        # Extract asr timestamps
         #
-        log.debug(f"\tASR:")
-        transcription_time = time.time()
-        segments, _ = whisper_model.transcribe(
-            signal,
-            beam_size=beam_size,
-            language=language_code,
-            vad_filter=True,
-            word_timestamps=False,
-            vad_parameters=dict(
-                threshold=vad_threshold,
-                min_speech_duration_ms=min_speech_duration_ms,
-                min_silence_duration_ms=min_silence_duration_ms
-            )
-        )
-        segs = [{'start': x.start, 'end': x.end, 'text': x.text} for x in segments]
-
-        transcription_time = time.time()-transcription_time
-        log.debug(f"\t\tTranscription time: {transcription_time}")
-
         log.debug('Word-level forced alignment:')
+        with open(os.path.join(input_asr_path, f"{filename}.json"), 'r', encoding='utf-8') as f:
+            x = json.load(f)
+        segs = [{'start': y['start'], 'end':y['end'], 'text': y['text']} for y in x['segments']]
+
         #
         # Number decoding
         #
@@ -330,17 +302,18 @@ def main(
                 shift_global += shift_seg
         # Cleanup indices
         for x in ao:
-            x.pop('start_idx')
-            x.pop('end_idx')
             for w in x['words']:
                 w.pop('start_idx')
                 w.pop('end_idx')
+                w['confidence'] = w['score']
+                w.pop('score')
+            x.pop('start_idx')
+            x.pop('end_idx')
+            x['confidence']= np.mean([w['confidence'] for w in x['words']])
         de_time = time.time() - de_time
         log.debug(f"\t\tDigit (re)encoding time: {de_time}")
         # Build metadata
         mtd = {
-            "preprocessing_time": prep_time,
-            "transcription_time": transcription_time,
             "decoding_time": decoding_time,
             "alignment_time": alignment_time,
             "encoding_time": de_time
@@ -351,8 +324,8 @@ def main(
             json.dump(
                 {
                     'segments': ao,
-                    'duration': librosa.get_duration(y=signal, sr=16000),
-                    'metadata': mtd
+                    'duration': x['duration'],
+                    'metadata': {**mtd, **{x['metadata']}}
                 },
                 f,
                 indent=4,

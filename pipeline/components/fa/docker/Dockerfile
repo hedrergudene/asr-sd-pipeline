@@ -14,4 +14,5 @@ RUN pip install 'azureml-core==1.47.0' \
                 'audiofile==1.3.0' \
                 'num2words==0.5.12' \
                 'pandas==2.0.3' \
+                'numpy==1.26.0' \
                 'fire==0.5.0'

@@ -17,6 +17,7 @@ asr:
   vad_threshold: 0.5
   min_speech_duration_ms: 200
   min_silence_duration_ms: 500
+  word_level_timestamps: true
   language_code: 'es'
   compute_type: 'float16'
 

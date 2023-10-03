@@ -65,6 +65,7 @@ def main(
     vad_threshold,
     min_speech_duration_ms,
     min_silence_duration_ms,
+    word_level_timestamps,
     compute_type,
     language_code,
     output_path
@@ -118,33 +119,37 @@ def main(
             beam_size=beam_size,
             language=language_code,
             vad_filter=True,
-            word_timestamps=True,
+            word_timestamps=word_level_timestamps,
             vad_parameters=dict(
                 threshold=vad_threshold,
                 min_speech_duration_ms=min_speech_duration_ms,
                 min_silence_duration_ms=min_silence_duration_ms
             )
         )
-        segs = []
-        for x in segments:
-            words = []
-            for word in x.words:
-                words.append(
-                   {
-                      'start':word.start,
-                      'end':word.end,
-                      'text':word.word.strip(),
-                      'confidence': word.probability
-                   }
-                )
-            s = {
-               'start':words[0]['start'],
-               'end':words[-1]['end'],
-               'text':' '.join([w['text'] for w in words]),
-               'confidence': sum([w['confidence'] for w in words])/len([w['confidence'] for w in words])
-            }
-            s['words'] = words
-            segs.append(s)
+
+        if word_level_timestamps:
+            segs = []
+            for x in segments:
+                words = []
+                for word in x.words:
+                    words.append(
+                       {
+                          'start':word.start,
+                          'end':word.end,
+                          'text':word.word.strip(),
+                          'confidence': word.probability
+                       }
+                    )
+                s = {
+                   'start':words[0]['start'],
+                   'end':words[-1]['end'],
+                   'text':' '.join([w['text'] for w in words]),
+                   'confidence': sum([w['confidence'] for w in words])/len([w['confidence'] for w in words])
+                }
+                s['words'] = words
+                segs.append(s)
+        else:
+            segs = [{'start': x.start, 'end': x.end, 'text': x.text.strip()} for x in segments]
         transcription_time = time.time()-transcription_time
         log.info(f"\t\tTranscription time: {transcription_time}")
 

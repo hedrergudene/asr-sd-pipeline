@@ -90,6 +90,7 @@ def main(
     
     # Fetch components
     asr_comp = load_component(source="./components/asr/asr.yaml")
+    fa_comp = load_component(source="./components/fa/fa.yaml")
     diar_comp = load_component(source=f"./components/diar/diar.yaml")
     merge_align_comp = load_component(source=f"./components/merge_align/merge_align.yaml")
     
@@ -111,21 +112,30 @@ def main(
             vad_threshold=config_dct['asr']['vad_threshold'],
             min_speech_duration_ms=config_dct['asr']['min_speech_duration_ms'],
             min_silence_duration_ms=config_dct['asr']['min_silence_duration_ms'],
+            word_level_timestamps=config_dct['asr']['word_level_timestamps'],
             compute_type=config_dct['asr']['compute_type'],
+            language_code=config_dct['asr']['language_code']
+        )
+
+        # FA
+        fa_node = fa_comp(
+            input_path=input_data,
+            input_asr_path=asr_node.outputs.output_path,
+            align_model_name=config_dct['asr']['align_model_name'],
             language_code=config_dct['asr']['language_code']
         )
 
         # MSDD
         diar_node = diar_comp(
             input_path=input_data,
-            input_asr_path=asr_node.outputs.output_path,
+            input_asr_path=fa_node.outputs.output_path,
             event_type=config_dct['diarization']['event_type'],
             max_num_speakers=config_dct['diarization']['max_num_speakers']
         )
 
         # Merge
         merge_align_node= merge_align_comp(
-            input_asr_path=asr_node.outputs.output_path,
+            input_asr_path=fa_node.outputs.output_path,
             input_diarizer_path=diar_node.outputs.output_path,
             max_words_in_sentence=config_dct['align']['max_words_in_sentence'],
             sentence_ending_punctuations=config_dct['align']['sentence_ending_punctuations']
