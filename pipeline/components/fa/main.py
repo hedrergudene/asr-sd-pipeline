@@ -325,7 +325,7 @@ def main(
                 {
                     'segments': ao,
                     'duration': x['duration'],
-                    'metadata': {**mtd, **{x['metadata']}}
+                    'metadata': {**mtd, **x['metadata']}
                 },
                 f,
                 indent=4,
