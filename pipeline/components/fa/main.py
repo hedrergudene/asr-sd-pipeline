@@ -341,6 +341,8 @@ def main(
                 w.pop('end_idx')
                 w['confidence'] = w['score']
                 w.pop('score')
+                w['text'] = w['word']
+                w.pop('word')
             x.pop('start_idx')
             x.pop('end_idx')
             x['confidence']= np.mean([w['confidence'] for w in x['words']])
