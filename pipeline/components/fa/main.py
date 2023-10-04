@@ -111,8 +111,8 @@ def main(
         #
         log.debug('Word-level forced alignment:')
         with open(os.path.join(input_asr_path, f"{filename}.json"), 'r', encoding='utf-8') as f:
-            x = json.load(f)
-        segs = [{'start': y['start'], 'end':y['end'], 'text': y['text']} for y in x['segments']]
+            asr_input_dct = json.load(f)
+        segs = [{'start': y['start'], 'end':y['end'], 'text': y['text']} for y in asr_input_dct['segments']]
 
         #
         # Number decoding
@@ -121,7 +121,7 @@ def main(
         decoding_time = time.time()
         length, ents, seg_dct = 0, [], []
         for x in segs:
-            text = x.get('text')
+            text = x.get('text').strip()
             # Remove spaces before commas and dots
             text = re.sub(r'\s+([.,])', r'\1', text)
             # Remove spaces before percentage signs
@@ -131,11 +131,43 @@ def main(
             next_match = re.search(regex, text)
             while next_match is not None:
                 ts, te, match = next_match.start(), next_match.end(), next_match.group()
+                new_text = match.replace('-', ' ')
                 try:
                     new_text= ' '.join([num2words(z.replace(',',''), lang=language_code) for z in new_text.split(' ')])
                 except InvalidOperation:
                     log.debug(f"Pattern {match} not identified as numeric. Decomposing it into numeric chunks:")
                     new_text = re.sub(r'[^0-9]', ' ', new_text)
+                    new_text = ' '.join([num2words(z.replace(',',''), lang=language_code) for z in new_text.split(' ')])
+                if text[next_match.start()-1:next_match.start()]=='$': # Dollars
+                    new_text = new_text+' dólares' if language_code=='es' else new_text+' dollars'
+                    ents.append({'text': new_text, 'pattern':'$'+match, 'start_idx': ts+length-1, 'end_idx': ts+(len(new_text)-1)+length})
+                    text = text[:ts-1] + new_text + text[te:] # As percentage sign goes to the left
+                elif text[next_match.start():next_match.start()+1]=='%': # Percentages
+                    new_text = new_text+' por ciento' if language_code=='es' else new_text+' percent'
+                    ents.append({'text': new_text, 'pattern':match+'%', 'start_idx': ts+length, 'end_idx': ts+(len(new_text)-1)+length+1})
+                    text = text[:ts] + new_text + text[te+1:] # As percentage sign goes to the right
+                else:
+                    ents.append({'text': new_text, 'pattern':match, 'start_idx': ts+length, 'end_idx': ts+len(new_text)+length})
+                    text = text[:ts] + new_text + text[te:]
+                # Modify via shift entities that are after the chosen one
+                shift = len(new_text) -len(match)
+                for ent in [x for x in ents if (te+length)<=x['start_idx']]:
+                    ent['start_idx'] += shift
+                    ent['end_idx'] += shift
+                # Restart loop
+                next_match = re.search(regex, text)
+            # Matches numeric expressions only
+            regex = r'[0-9]+'
+            next_match = re.search(regex, text)
+            while next_match is not None:
+                ts, te, match = next_match.start(), next_match.end(), next_match.group()
+                new_text = match.replace('-', ' ')
+                try:
+                    new_text =  ' '.join([num2words(z.replace(',',''), lang=language_code) for z in new_text.split(' ')])
+                except InvalidOperation:
+                    log.debug(f"Pattern {match} not identified as numeric. Decomposing it into numeric chunks:")
+                    new_text = re.sub(regex, ' ', match)
+                    new_text =  ' '.join([num2words(z.replace(',',''), lang=language_code) for z in new_text.split(' ')])
                 if text[next_match.start()-1:next_match.start()]=='$': # Dollars
                     new_text = new_text+' dólares' if language_code=='es' else new_text+' dollars'
                     ents.append({'text': new_text, 'pattern':'$'+match, 'start_idx': ts+length-1, 'end_idx': ts+(len(new_text)-1)+length})
@@ -164,6 +196,8 @@ def main(
                     new_text= ' '.join([num2words(z.replace(',',''), lang=language_code) for z in new_text.split(' ')])
                 except InvalidOperation:
                     log.debug(f"Pattern {match} not identified as numeric. Decomposing it into numeric chunks:")
+                    new_text = re.sub(regex, ' ', match)
+                    new_text =  ' '.join([num2words(z.replace(',',''), lang=language_code) for z in new_text.split(' ')])
                 # Modify via shift entities that are after the chosen one
                 shift = len(new_text) -len(match)
                 for ent in [x for x in ents if (te+length)<=x['start_idx']]:
@@ -324,8 +358,8 @@ def main(
             json.dump(
                 {
                     'segments': ao,
-                    'duration': x['duration'],
-                    'metadata': {**mtd, **x['metadata']}
+                    'duration': asr_input_dct['duration'],
+                    'metadata': {**mtd, **asr_input_dct['metadata']}
                 },
                 f,
                 indent=4,
