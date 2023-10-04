@@ -51,7 +51,7 @@ inputs:
   word_level_timestamps:
     type: boolean
     default: false
-    optioonal: true
+    optional: true
   compute_type:
     type: string
     default: 'float16'
