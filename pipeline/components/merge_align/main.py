@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 import time
 from src.utils import get_words_speaker_mapping, get_realigned_ws_mapping_with_punctuation, get_sentences_speaker_mapping
-from deepmultilingualpunctuation import PunctuationModel
+from src.model import PunctuationModel
 import fire
 
 
@@ -40,6 +40,7 @@ def main(
 
     # Loop
     for filename in filenames:
+        log.debug(f"Processing file {filename}:")
         with open(os.path.join(input_asr_path, f"{filename}.json"), 'r', encoding='utf8') as f:
             asr_dct = json.load(f)
         asr_input = [w for s in asr_dct['segments'] for w in s['words']]
@@ -48,7 +49,7 @@ def main(
         diar_input = [[s['start'], s['end'], s['speaker']] for s in diar_dct['segments']]
         # If file contains no segments, jump to the next one generating dummy metadata
         if len(diar_dct['segments'])==0:
-            log.info(f"Audio {filename} does not contain segments. Dumping dummy file and skipping:")
+            log.debug(f"Audio {filename} does not contain segments. Dumping dummy file and skipping:")
             # Save output
             with open(
                 os.path.join(

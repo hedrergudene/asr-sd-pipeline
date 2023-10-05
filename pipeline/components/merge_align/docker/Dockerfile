@@ -5,9 +5,9 @@ FROM mcr.microsoft.com/azureml/curated/acpt-pytorch-2.0-cuda11.7
 # Install pip dependencies
 ## ASR
 # Install dependencies
-RUN pip install 'azureml-core==1.47.0' \
-                'azure-ai-ml==1.10.1' \
-                'deepmultilingualpunctuation==1.0.1' \
-                'protobuf==3.20.0' \
-                'pyyaml==5.4.1' \
-                'fire==0.5.0'
+RUN python -m pip install 'azureml-core==1.47.0' \
+                          'azure-ai-ml==1.10.1' \
+                          'transformers==4.34.0' \
+                          'protobuf==3.20.0' \
+                          'pyyaml==5.4.1' \
+                          'fire==0.5.0'
