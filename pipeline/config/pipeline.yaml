@@ -14,7 +14,7 @@ asr:
   align_model_name: 'jonatasgrosman/wav2vec2-large-xlsr-53-spanish'
   num_workers: 4
   beam_size: 5
-  vad_threshold: 0.5
+  vad_threshold: 0.8
   min_speech_duration_ms: 200
   min_silence_duration_ms: 500
   word_level_timestamps: true

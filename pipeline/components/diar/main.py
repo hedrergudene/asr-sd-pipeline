@@ -102,7 +102,7 @@ def main(
         with open(os.path.join(input_asr_path, f"{filename}.json"), 'r', encoding='utf-8') as f:
             x = json.load(f)['segments']
         # Ensure audio is not silent
-        if len(x)==0:
+        if ((len(x)==0) | (len([w for s in x for w in s['words']])==0)):
             log.info(f"Audio {filename} does not contain segments. Dumping dummy file and skipping:")
             with open(os.path.join(output_path, f"{filename}.json"), 'w', encoding='utf8') as f:
                 json.dump(

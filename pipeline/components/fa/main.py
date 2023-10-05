@@ -300,7 +300,7 @@ def main(
                     target_words_begin = [x for x in seg['words'] if ((x['end_idx']>=ent['start_idx']) & (x['start_idx']<=ent['end_idx']))]
                     agg_dct = pd.DataFrame(target_words_begin).agg({'start': 'min', 'end': 'max', 'score': 'mean', 'start_idx': 'min', 'end_idx': 'max'}).to_dict()
                     agg_dct['start_idx'] = int(ent['start_idx'])
-                    agg_dct['word'] = re.sub(ent['text'], ent['pattern'],' '.join([x['word'] for x in target_words_begin]))
+                    agg_dct['word'] = re.sub(ent['text'], ent['pattern'], ' '.join([x['word'] for x in target_words_begin]), count=1)
                     agg_dct['end_idx'] = ent['start_idx']+len(agg_dct['word'])
                     shift_ent = len(agg_dct['word'])-int(len(' '.join([x['word'] for x in target_words_begin])))
                     shift_seg += shift_ent

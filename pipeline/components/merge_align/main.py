@@ -47,7 +47,7 @@ def main(
             diar_dct = json.load(f)
         diar_input = [[s['start'], s['end'], s['speaker']] for s in diar_dct['segments']]
         # If file contains no segments, jump to the next one generating dummy metadata
-        if len(asr_dct['segments'])==0:
+        if len(diar_dct['segments'])==0:
             log.info(f"Audio {filename} does not contain segments. Dumping dummy file and skipping:")
             # Save output
             with open(
