@@ -113,6 +113,7 @@ def main(
             min_speech_duration_ms=config_dct['asr']['min_speech_duration_ms'],
             min_silence_duration_ms=config_dct['asr']['min_silence_duration_ms'],
             word_level_timestamps=config_dct['asr']['word_level_timestamps'],
+            condition_on_previous_text=config_dct['asr']['condition_on_previous_text'],
             compute_type=config_dct['asr']['compute_type'],
             language_code=config_dct['asr']['language_code']
         )

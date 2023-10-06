@@ -66,6 +66,7 @@ def main(
     min_speech_duration_ms,
     min_silence_duration_ms,
     word_level_timestamps,
+    condition_on_previous_text,
     compute_type,
     language_code,
     output_path
@@ -118,6 +119,7 @@ def main(
             signal,
             beam_size=beam_size,
             language=language_code,
+            condition_on_previous_text=condition_on_previous_text,
             vad_filter=True,
             word_timestamps=word_level_timestamps,
             vad_parameters=dict(

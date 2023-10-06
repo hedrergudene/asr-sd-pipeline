@@ -52,6 +52,10 @@ inputs:
     type: boolean
     default: false
     optional: true
+  condition_on_previous_text:
+    type: boolean
+    default: false
+    optional: true
   compute_type:
     type: string
     default: 'float16'
@@ -90,4 +94,4 @@ resources:
 # this component
 # When the input is set as optional = true, you need use $[[]] to embrace
 # the command line with inputs.
-command: python ./main.py --input_path ${{inputs.input_path}} $[[--whisper_model_name ${{inputs.whisper_model_name}}]] $[[--num_workers ${{inputs.num_workers}}]] $[[--beam_size ${{inputs.beam_size}}]] $[[--vad_threshold ${{inputs.vad_threshold}}]] $[[--min_speech_duration_ms ${{inputs.min_speech_duration_ms}}]] $[[--min_silence_duration_ms ${{inputs.min_silence_duration_ms}}]] $[[--word_level_timestamps ${{inputs.word_level_timestamps}}]] $[[--compute_type ${{inputs.compute_type}}]] $[[--language_code ${{inputs.language_code}}]] --output_path ${{outputs.output_path}}
+command: python ./main.py --input_path ${{inputs.input_path}} $[[--whisper_model_name ${{inputs.whisper_model_name}}]] $[[--num_workers ${{inputs.num_workers}}]] $[[--beam_size ${{inputs.beam_size}}]] $[[--vad_threshold ${{inputs.vad_threshold}}]] $[[--min_speech_duration_ms ${{inputs.min_speech_duration_ms}}]] $[[--min_silence_duration_ms ${{inputs.min_silence_duration_ms}}]] $[[--word_level_timestamps ${{inputs.word_level_timestamps}}]] $[[--condition_on_previous_text ${{inputs.condition_on_previous_text}}]] $[[--compute_type ${{inputs.compute_type}}]] $[[--language_code ${{inputs.language_code}}]] --output_path ${{outputs.output_path}}
