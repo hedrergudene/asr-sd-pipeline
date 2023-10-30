@@ -25,7 +25,7 @@ Speech recognition is the task of automatically transcribing spoken language int
 
 Autoregressive models such as [Whisper](https://openai.com/research/whisper) provide excepcional transcriptions when combined with some additional preprocessing features, that we have picked up from [this excellent repo](https://github.com/guillaumekln/faster-whisper), being the quality of the timestamps returned for each audio segment rather poor. In this direction, phoneme-based speech recognition tools like [wav2vec2](https://ai.facebook.com/blog/wav2vec-20-learning-the-structure-of-speech-from-raw-audio/) handle timestamps perfectly, as these are finetuned to recognise the smallest unit of speech distinguishing one word from another.
 
-A technique that makes both ends meet is [forced alignment](https://linguistics.berkeley.edu/plab/guestwiki/index.php?title=Forced_alignment#:~:text=Forced%20alignment%20refers%20to%20the,automatically%20generate%20phone%20level%20segmentation.); a good introduction to this topic can be found [here](https://pytorch.org/audio/stable/tutorials/forced_alignment_tutorial.html), and our implementation relies on [whisperX repo](https://github.com/m-bain/whisperX).
+A technique that makes both ends meet is [forced alignment](https://linguistics.berkeley.edu/plab/guestwiki/index.php?title=Forced_alignment#:~:text=Forced%20alignment%20refers%20to%20the,automatically%20generate%20phone%20level%20segmentation.); a good introduction to this topic can be found [here](https://pytorch.org/audio/stable/tutorials/forced_alignment_tutorial.html), and our implementation relies on [NeMo repo](https://nvidia.github.io/NeMo/blogs/2023/2023-08-nfa/).
 
 <img src="images/sphx_glr_forced_alignment_tutorial_005.png"  width="70%" height="70%" style="display: block; margin: 0 auto">
 
@@ -113,8 +113,8 @@ AML computing clusters will use a service account to which we must assign a seri
 Once the environment has been created, permissions for service account have been granted and you filled the configuration file with your own data, the fastest way to run AML pipelines is by opening a terminal and running the provided script to start an AzureML job:
 
 ```
-cd parallel_job
-python parallel_job.py --config_path ./config/parallel_job.yaml
+cd pipeline
+python pipeline.py --config_path ./config/pipeline.yaml
 ```
 
 ## Call for contributions
@@ -126,6 +126,7 @@ Despite including and end-to-end solution to model design in AML, the following 
 - [X] Improve preprocessing techniques in an individual component to enhance stability.
 - [X] Parallelise processing using distributed, asynchronous clusters.
 - [X] Serialise pipeline implementation to avoid Microsoft bugs on `parallel_run_function`.
+- [X] End-to-end, monolitic implementation using keyvaults and security protocols.
 - [X] Enhance benchmark logging and CUDA capabilities checking.
 - [ ] Make sentence alignment more sensitive to short texts.
 

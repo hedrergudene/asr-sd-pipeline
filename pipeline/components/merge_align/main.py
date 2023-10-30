@@ -8,6 +8,7 @@ from pathlib import Path
 import time
 from src.utils import get_words_speaker_mapping, get_realigned_ws_mapping_with_punctuation, get_sentences_speaker_mapping
 from src.model import PunctuationModel
+from src.vad import SpeechTimestampsMap
 import fire
 
 
@@ -26,7 +27,6 @@ def main(
     input_asr_path,
     input_diarizer_path,
     max_words_in_sentence,
-    sentence_ending_punctuations,
     output_path
 ):
     # Create output paths
@@ -35,7 +35,7 @@ def main(
     filenames = [x.split('/')[-1].split('.')[0] for x in os.listdir(input_asr_path)]
     # PunctuationModel and metadata
     punct_model = PunctuationModel(model="kredor/punctuate-all")
-    ending_puncts = sentence_ending_punctuations
+    ending_puncts = '.?!'
     model_puncts = ".,;:!?"
 
     # Loop
@@ -95,10 +95,30 @@ def main(
                 if word.endswith(".."):
                     word = word.rstrip(".")
                 word_dict["word"] = word
-        wsm_final = get_realigned_ws_mapping_with_punctuation(wsm, max_words_in_sentence, sentence_ending_punctuations)
+        wsm_final = get_realigned_ws_mapping_with_punctuation(wsm, max_words_in_sentence, ending_puncts)
         ssm = get_sentences_speaker_mapping(wsm_final, diar_input)
         sm_time = time.time() - sm_time
         log.info(f"\tSentence-mapping time: {sm_time}")
+
+        #
+        # Adjust timestamps with VAD chunks
+        #
+        log.info('\tMapping VAD timestamps with transcription')
+        ts_map = SpeechTimestampsMap(asr_dct['vad_timestamps'], 16000)
+        for segment in ssm:
+                words = []
+                for word in segment['words']:
+                    # Ensure the word start and end times are resolved to the same chunk.
+                    middle = (word['start_time'] + word['end_time']) / 2
+                    chunk_index = ts_map.get_chunk_index(middle)
+                    word['start_time'] = ts_map.get_original_time(word['start_time'], chunk_index)
+                    word['end_time'] = ts_map.get_original_time(word['end_time'], chunk_index)
+                    words.append(word)
+
+                    segment['start_time'] = words[0]['start_time']
+                    segment['end_time'] = words[-1]['end_time']
+                    segment['words'] = words
+
 
         # Save output
         with open(

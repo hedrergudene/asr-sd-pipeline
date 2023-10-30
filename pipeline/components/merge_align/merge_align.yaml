@@ -23,10 +23,6 @@ inputs:
     min: 10
     max: 100
     optional: true
-  sentence_ending_punctuations:
-    type: string
-    default: '.?!'
-    optional: true
 outputs:
   output_path:
     type: uri_folder
@@ -55,4 +51,4 @@ resources:
 
 # The command section specifies the command to execute while running
 # this component
-command: python ./main.py --input_asr_path ${{inputs.input_asr_path}} --input_diarizer_path ${{inputs.input_diarizer_path}} $[[--max_words_in_sentence ${{inputs.max_words_in_sentence}}]] $[[--sentence_ending_punctuations ${{inputs.sentence_ending_punctuations}}]] --output_path ${{outputs.output_path}}
+command: python ./main.py --input_asr_path ${{inputs.input_asr_path}} --input_diarizer_path ${{inputs.input_diarizer_path}} $[[--max_words_in_sentence ${{inputs.max_words_in_sentence}}]] --output_path ${{outputs.output_path}}

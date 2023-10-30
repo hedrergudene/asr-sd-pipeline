@@ -7,8 +7,6 @@ import sys
 import json
 from pathlib import Path
 import torch
-import librosa
-import soundfile as sf
 from faster_whisper import WhisperModel
 import fire
 
@@ -58,13 +56,11 @@ def delete_files_in_directory_and_subdirectories(directory_path):
 
 # Main method. Fire automatically allign method arguments with parse commands from console
 def main(
-    input_path,
+    input_audio_path,
+    input_metadata_path,
     whisper_model_name,
     num_workers,
     beam_size,
-    vad_threshold,
-    min_speech_duration_ms,
-    min_silence_duration_ms,
     word_level_timestamps,
     condition_on_previous_text,
     compute_type,
@@ -87,28 +83,15 @@ def main(
     )
 
     # Set up input
-    f = Path(input_path)
+    f = Path(input_audio_path)
     files = list(f.iterdir())
 
     for pathdir in files:
-        # Read file
-        filename, extension = os.path.splitext(str(pathdir).split('/')[-1])
-        if extension not in ['.wav', '.mp3']:
-            log.info("Skipping file {}".format(pathdir))
-            continue
-        log.info("Processing file {}".format(pathdir))
-
-        # Preprocessing
-        log.info(f"\tConvert to 16kHz mono")
-        prep_time = time.time()
-        signal, sample_rate = librosa.load(pathdir, sr=None) # load audio from storage
-        if sample_rate!=16000: # Set sample_rate
-            signal = librosa.resample(signal, orig_sr=sample_rate, target_sr=16000)
-        if len(signal.shape)>1: # Set num_channels
-            signal = librosa.to_mono(signal)
-        #sf.write(f'./input_audios/{filename}.wav', signal, 16000, 'PCM_24') # save in tmp path as 16kHz, mono
-        prep_time = time.time() - prep_time
-        log.info(f"\t\tPrep. time: {prep_time}")
+        # Fetch metadata
+        fn, ext = os.path.splitext(str(pathdir).split('/')[-1])
+        log.info(f"Processing file {fn}:")
+        with open(f"{input_metadata_path}/{fn}.json", 'r') as f:
+            metadata_dct = json.load(f)
 
         #
         # Transcription
@@ -116,17 +99,12 @@ def main(
         log.info(f"\tASR:")
         transcription_time = time.time()
         segments, _ = whisper_model.transcribe(
-            signal,
+            f"{input_audio_path}/{fn}{ext}",
             beam_size=beam_size,
             language=language_code,
             condition_on_previous_text=condition_on_previous_text,
-            vad_filter=True,
-            word_timestamps=word_level_timestamps,
-            vad_parameters=dict(
-                threshold=vad_threshold,
-                min_speech_duration_ms=min_speech_duration_ms,
-                min_silence_duration_ms=min_silence_duration_ms
-            )
+            vad_filter=False,
+            word_timestamps=word_level_timestamps
         )
 
         if word_level_timestamps:
@@ -157,16 +135,16 @@ def main(
 
         # Build metadata
         mtd = {
-            "preprocessing_time": prep_time,
             "transcription_time": transcription_time
         }
         # Save output
-        with open(os.path.join(output_path, f"{filename}.json"), 'w', encoding='utf8') as f:
+        with open(os.path.join(output_path, f"{fn}.json"), 'w', encoding='utf8') as f:
             json.dump(
                 {
                     'segments': segs,
-                    'duration': librosa.get_duration(y=signal, sr=16000),
-                    'metadata': mtd
+                    'duration': metadata_dct['duration'],
+                    'vad_timestamps': metadata_dct['vad_timestamps'], # List of dictionaries with keys 'start', 'end'
+                    'metadata': {**metadata_dct['metadata'], **mtd}
                 },
                 f,
                 indent=4,

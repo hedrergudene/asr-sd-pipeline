@@ -1,16 +1,12 @@
 # Libraries
 import sys
 import logging as log
-import soundfile as sf
-import librosa
 from pathlib import Path
 import os
 import json
 import time
-from typing import List
+from typing import List, Dict
 import json
-import numpy as np
-import torch
 from nemo.collections.asr.parts.utils.diarization_utils import OfflineDiarWithASR
 from omegaconf import OmegaConf
 import fire 
@@ -24,10 +20,11 @@ formatter = log.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 handler.setFormatter(formatter)
 root.addHandler(handler)
 
-# Helper function to build NeMo input manifest
+
+# Helper function to build NeMo input manifes
 def create_msdd_config(audio_filenames:List[str]):
-    if os.path.exists("input/nemo_manifest.jsonl"): os.remove("input/nemo_manifest.jsonl")
-    with open("input/nemo_manifest.jsonl", "w") as fp:
+    if os.path.exists("input/diar_manifest.jsonl"): os.remove("input/diar_manifest.jsonl")
+    with open("input/diar_manifest.jsonl", "w") as fp:
         for x in audio_filenames:
             json.dump({
                     "audio_filepath": x,
@@ -40,14 +37,21 @@ def create_msdd_config(audio_filenames:List[str]):
                }, fp)
             fp.write('\n')
 
+
 # Helper function to create voice activity detection manifest
-def create_asr_vad_config(segments, filepath, filename):
-    return [{"audio_filepath": filepath, "offset": float(x['start']), "duration": float(x['end'])-float(x['start']), "label": "UNK", "uniq_id": filename} for x in segments]
+def create_asr_vad_config(segments:Dict, filepath:str):
+    fn, _ = os.path.splitext(filepath.split('/')[-1])
+    asr_vad_manifest=[{"audio_filepath": filepath, "offset": float(x['start']), "duration": float(x['end'])-float(x['start']), "label": "UNK", "uniq_id": fn} for x in segments]
+    if os.path.exists("./input/asr_vad_manifest.jsonl"): os.remove("./input/asr_vad_manifest.jsonl")
+    with open("./input/asr_vad_manifest.jsonl", "w") as fp:
+        for line in asr_vad_manifest:
+            json.dump(line, fp)
+            fp.write('\n')
 
 
 # Helper function to process diarization output from method output
-def process_NeMo_output(diar_output):
-    return [{'filename': fp, 'segments':[{'start':float(x.split(' ')[0]), 'end': float(x.split(' ')[1]), 'speaker':x.split(' ')[2][-1]} for x in segments]} for fp, segments in diar_output.items()]
+def process_diar_output(diar_output):
+    return {fp:[{'start':float(x.split(' ')[0]), 'end': float(x.split(' ')[1]), 'speaker':x.split(' ')[2][-1]} for x in segments] for fp, segments in diar_output.items()}
 
 
 # Helper function to cleanup audios directory
@@ -71,12 +75,8 @@ def main(
     output_path
 ):
 
-    # Device
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
     # Folder structure
-    Path('./input_audios').mkdir(parents=True, exist_ok=True)
-    Path('./nemo_output').mkdir(parents=True, exist_ok=True)
+    Path('./nemo_diar_output').mkdir(parents=True, exist_ok=True)
 
     ## Read NeMo MSDD configuration file
     msdd_cfg = OmegaConf.load(f'./input/diar_infer_{event_type}.yaml')
@@ -85,7 +85,6 @@ def main(
     create_msdd_config(['sample_audio.wav']) # initialise msdd cfg
     ## Initialize NeMo MSDD diarization model
     msdd_model = OfflineDiarWithASR(msdd_cfg.diarizer)
-    word_ts = {}
     # Set up input
     f = Path(input_path)
     files = list(f.iterdir())
@@ -93,81 +92,41 @@ def main(
     for pathdir in files:
         # Read file
         filename, extension = os.path.splitext(str(pathdir).split('/')[-1])
-        if os.path.splitext(pathdir)[1] not in ['.wav', '.mp3']:
-            log.info("Skipping file {}".format(pathdir))
-            continue
-        log.info("Processing file {}".format(pathdir))
-    
+        log.info(f"Processing file {filename}:")
         # Read word-level transcription to fetch timestamps
         with open(os.path.join(input_asr_path, f"{filename}.json"), 'r', encoding='utf-8') as f:
             x = json.load(f)['segments']
-        # Ensure audio is not silent
-        if ((len(x)==0) | (len([w for s in x for w in s['words']])==0)):
-            log.info(f"Audio {filename} does not contain segments. Dumping dummy file and skipping:")
-            with open(os.path.join(output_path, f"{filename}.json"), 'w', encoding='utf8') as f:
-                json.dump(
-                    {
-                        'segments': [],
-                        'metadata': {
-                            'diarization_time': 0
-                        }
-                    },
-                    f,
-                    indent=4,
-                    ensure_ascii=False
-                )
-            continue
-        # Word-level timestamps
-        word_ts[filename] = [[w['start'],w['end']] for s in x for w in s['words']]
-        # Fetch VAD info
-        asr_vad_manifest = create_asr_vad_config(x, f'./input_audios/{filename}.wav', filename)
-        # Create ./nemo_output/asr_vad_manifest.json
-        if os.path.exists("./nemo_output/asr_vad_manifest.jsonl"): os.remove("./nemo_output/asr_vad_manifest.jsonl")
-        with open("./nemo_output/asr_vad_manifest.jsonl", "w") as fp:
-            for line in asr_vad_manifest:
-                json.dump(line, fp)
-                fp.write('\n')
-
-        # Preprocessing
-        log.info(f"\tConvert to 16kHz mono")
-        prep_time = time.time()
-        signal, sample_rate = librosa.load(pathdir, sr=None) # load audio from storage
-        if sample_rate!=16000: # Set sample_rate
-            signal = librosa.resample(signal, orig_sr=sample_rate, target_sr=16000)
-        if len(signal.shape)>1: # Set num_channels
-            signal = librosa.to_mono(signal)
-        sf.write(f'./input_audios/{filename}.wav', np.ravel(signal), 16000, 'PCM_24') # save in tmp path as 16kHz, mono
-        prep_time = time.time() - prep_time
-        log.info(f"\t\tPrep. time: {prep_time}")
+        word_ts = [[w['start'], w['end']] for y in x for w in y]
+        # Create ./input/asr_vad_manifest.json
+        create_asr_vad_config(x, f'{input_path}/{filename}.wav')
 
         #
         # Speaker diarization
         #
         log.info(f"Run diarization")
         diar_time = time.time()
-        create_msdd_config([f"./input_audios/{filename}.wav"]) # initialise msdd cfg
-        msdd_model.audio_file_list = [f"./input_audios/{filename}.wav"] # update audios list
-        diar_hyp, _ = msdd_model.run_diarization(msdd_cfg, {filename:word_ts[filename]})
+        create_msdd_config([f"{input_path}/{filename}.wav"]) # initialise msdd cfg
+        msdd_model.audio_file_list = [f"{input_path}/{filename}.wav"] # update audios list
+        diar_hyp, _ = msdd_model.run_diarization(msdd_cfg, {filename:word_ts})
         diar_time = time.time() - diar_time
         log.info(f"\tDiarization time: {diar_time}")
         # Process diarization output
         log.info(f"Save outputs")
-        for x in process_NeMo_output(diar_hyp):
-            with open(os.path.join(output_path, f"{x['filename']}.json"), 'w', encoding='utf8') as f:
-                json.dump(
-                    {
-                        'segments': x['segments'],
-                        'metadata': {
-                            'diarization_time': diar_time
-                        }
-                    },
-                    f,
-                    indent=4,
-                    ensure_ascii=False
-                )
-            os.remove(f"./input_audios/{x['filename']}.wav")
+        segments = process_diar_output(diar_hyp)[filename]
+        with open(os.path.join(output_path, f"{filename}.json"), 'w', encoding='utf8') as f:
+            json.dump(
+                {
+                    'segments': segments,
+                    'metadata': {
+                        'diarization_time': diar_time
+                    }
+                },
+                f,
+                indent=4,
+                ensure_ascii=False
+            )
         log.info(f"Cleanup resources")
-        delete_files_in_directory_and_subdirectories('./nemo_output')
+        delete_files_in_directory_and_subdirectories('./nemo_diar_output')
 
 
 if __name__=="__main__":

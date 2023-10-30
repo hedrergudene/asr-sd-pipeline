@@ -2,9 +2,9 @@ $schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.jso
 type: command
 
 # General information about the component
-name: fa
-display_name: Forced Alignment inference
-description: A template component to apply forced alignment to ASR timestamps.
+name: nfa_inference
+display_name: Forced alignment  inference
+description: A template component to run inference on Forced Alignmend based on Viterbi algorithm by Nvidia.
 tags:
   author: Antonio Zarauz Moreno
   version: '1.0'
@@ -17,13 +17,15 @@ inputs:
   input_asr_path:
     type: uri_folder
     optional: false
-  align_model_name:
+  fa_model_name:
     type: string
-    default: 'jonatasgrosman/wav2vec2-large-xlsr-53-spanish'
+    default: 'stt_es_fastconformer_hybrid_large_pc'
     optional: true
-  language_code:
-    type: string
-    default: es
+  fa_batch_size:
+    type: integer
+    default: 32
+    min: 1
+    max: 128
     optional: true
 outputs:
   output_path:
@@ -37,7 +39,7 @@ code: ./
 # Environment takes care of source image and dependencies
 # https://learn.microsoft.com/en-us/azure/machine-learning/how-to-manage-environments-v2?view=azureml-api-2&tabs=cli
 environment:
-  image: fa_env:1
+  image: nfa_env:1
 
 # Cluster instance
 compute: azureml:gpu-cluster
@@ -55,4 +57,4 @@ resources:
 # this component
 # When the input is set as optional = true, you need use $[[]] to embrace
 # the command line with inputs.
-command: python ./main.py --input_path ${{inputs.input_path}} --input_asr_path ${{inputs.input_asr_path}} $[[--align_model_name ${{inputs.align_model_name}}]] $[[--language_code ${{inputs.language_code}}]] --output_path ${{outputs.output_path}}
+command: python ./main.py --input_path ${{inputs.input_path}} --input_asr_path ${{inputs.input_asr_path}} $[[--fa_model_name ${{inputs.fa_model_name}}]] $[[--fa_batch_size ${{inputs.fa_batch_size}}]] --output_path ${{outputs.output_path}}

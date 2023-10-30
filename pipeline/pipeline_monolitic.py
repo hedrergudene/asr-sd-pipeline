@@ -21,7 +21,7 @@ root.addHandler(handler)
 
 # Main method. Fire automatically allign method arguments with parse commands from console
 def main(
-    config_path:str='./config/pipeline.yaml'
+    config_path:str='./config/pipeline_monolitic.yaml'
 ):
 
     # Get credential token
@@ -45,13 +45,9 @@ def main(
 
     # Define the gpu cluster computations if it is not found
     try:
-        cpu_cluster = ml_client.compute.get(config_dct['azure']['computing']['cpu_cluster_aml_id'])
+        cluster = ml_client.compute.get(config_dct['azure']['cluster_aml_id'])
     except Exception as ex:
-        log.error(f"CPU cluster was not found. Introduced parameter is {config_dct['azure']['computing']['cpu_cluster_aml_id']}. Returned error is: {ex.message}")
-    try:
-        gpu_cluster = ml_client.compute.get(config_dct['azure']['computing']['gpu_cluster_aml_id'])
-    except Exception as ex:
-        log.error(f"GPU cluster was not found. Introduced parameter is {config_dct['azure']['computing']['gpu_cluster_aml_id']}. Returned error is: {ex.message}")
+        log.error(f"Computing cluster was not found. Introduced parameter is {config_dct['azure']['cluster_aml_id']}. Returned error is: {ex.message}")
 
     # Register environments
     log.info("Check environments availability:")
@@ -82,83 +78,55 @@ def main(
                 
 
     # Set the input and output URI paths for the data.
-    input_audio_data = Input(
-        path=config_dct['azure']['data_filepath'],
+    input_data = Input(
+        path=config_dct['azure']['input_path'],
         type=AssetTypes.URI_FOLDER,
         mode=InputOutputModes.RO_MOUNT #Alternative, DOWNLOAD
     )
     
     # Fetch components
-    prep_comp = load_component(source="./components/prep/prep.yaml")
-    asr_comp = load_component(source="./components/asr/asr.yaml")
-    nfa_comp = load_component(source="./components/nfa/nfa.yaml")
-    diar_comp = load_component(source=f"./components/diar/diar.yaml")
-    merge_align_comp = load_component(source=f"./components/merge_align/merge_align.yaml")
+    e2e_comp = load_component(source="./components/e2e/e2e.yaml")
     
     # Define a pipeline containing the previous nodes
     @pipeline(
-        default_compute=config_dct['azure']['computing']['gpu_cluster_aml_id'],
+        default_compute=config_dct['azure']['cluster_aml_id'],
     )
     def asr_msdd_inference_pipeline(
         input_data:Input
     ):
         """Multi-speaker speech recognition pipeline."""
 
-        # Preprocessing
-        prep_node = prep_comp(
-            input_path = input_data,
+        e2e_node = e2e_comp(
+            input_path=input_data,
             keyvault_name=config_dct['azure']['keyvault_name'],
             secret_name=config_dct['azure']['secret_name'],
             vad_threshold=config_dct['preprocessing']['vad_threshold'],
             min_speech_duration_ms=config_dct['preprocessing']['min_speech_duration_ms'],
             min_silence_duration_ms=config_dct['preprocessing']['min_silence_duration_ms'],
+            speech_pad_ms=config_dct['preprocessing']['speech_pad_ms'],
             use_onnx_vad=config_dct['preprocessing']['use_onnx_vad'],
-            demucs_model=config_dct['preprocessing']['demucs_model']
-        )
-
-        # ASR
-        asr_node = asr_comp(
-            input_audio_path=prep_node.outputs.output_audios_path,
-            input_metadata_path=prep_node.outputs.output_metadata_path,
-            whisper_model_name=config_dct['asr']['model_name'],
-            num_workers=config_dct['asr']['num_workers'],
-            beam_size=config_dct['asr']['beam_size'],
-            word_level_timestamps=config_dct['asr']['word_level_timestamps'],
-            condition_on_previous_text=config_dct['asr']['condition_on_previous_text'],
-            compute_type=config_dct['asr']['compute_type'],
-            language_code=config_dct['asr']['language_code']
-        )
-
-        # NFA
-        nfa_node = nfa_comp(
-            input_path=prep_node.outputs.output_audios_path,
-            input_asr_path=asr_node.outputs.output_path,
+            demucs_model=config_dct['preprocessing']['demucs_model'],
+            asr_model_name=config_dct['asr']['model_name'],
+            asr_compute_type=config_dct['asr']['compute_type'],
+            asr_chunk_length_s=config_dct['asr']['chunk_length_s'],
+            asr_batch_size=config_dct['asr']['batch_size'],
             fa_model_name=config_dct['fa']['model_name'],
-            fa_batch_size=config_dct['fa']['batch_size']
-        )
-
-        # MSDD
-        diar_node = diar_comp(
-            input_path=prep_node.outputs.output_audios_path,
-            input_asr_path=nfa_node.outputs.output_path,
+            fa_batch_size=config_dct['fa']['batch_size'],
             event_type=config_dct['diarization']['event_type'],
-            max_num_speakers=config_dct['diarization']['max_num_speakers']
-        )
-
-        # Merge
-        merge_align_node= merge_align_comp(
-            input_asr_path=nfa_node.outputs.output_path,
-            input_diarizer_path=diar_node.outputs.output_path,
+            max_num_speakers=config_dct['diarization']['max_num_speakers'],
             max_words_in_sentence=config_dct['align']['max_words_in_sentence']
         )
 
         return {
-            "output": merge_align_node.outputs.output_path
+            "output": e2e_node.outputs.output_path
         }
 
-    
+    # Set up pipeline output
+    pipeline_job.outputs.model_output = Output(
+        type="uri_folder", mode="rw_mount", path=config_dct['azure']['input_path']
+    )
     # Create a pipeline
-    pipeline_job = asr_msdd_inference_pipeline(input_audio_data)
+    pipeline_job = asr_msdd_inference_pipeline(input_data)
     pipeline_job = ml_client.jobs.create_or_update(
         pipeline_job, experiment_name=config_dct['azure']['experiment_name']
     )

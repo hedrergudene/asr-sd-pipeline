@@ -3,7 +3,7 @@ type: command
 
 # General information about the component
 name: diarize_inference
-display_name: MSDD inference
+display_name: Diarization inference
 description: A template component to run inference on Multi-Scale Diarization Decoder model by Nvidia.
 tags:
   author: Antonio Zarauz Moreno
