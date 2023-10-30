@@ -83,7 +83,7 @@ def main(
     )
 
     # Set up input
-    f = Path(input_audio_path)
+    f = Path(input_metadata_path)
     files = list(f.iterdir())
 
     for pathdir in files:
@@ -92,6 +92,21 @@ def main(
         log.info(f"Processing file {fn}:")
         with open(f"{input_metadata_path}/{fn}.json", 'r') as f:
             metadata_dct = json.load(f)
+
+        # Ensure audio contains activity
+        if len(metadata_dct['vad_timestamps'])==0:
+            log.info(f"Audio {fn} does not contain any activity. Generating dummy metadata:")
+            with open(f"{output_path}/{fn}.json", 'w') as f:
+                json.dump(
+                    {
+                        'vad_timestamps': metadata_dct['vad_timestamps'], # List of dictionaries with keys 'start', 'end'
+                        'segments': []
+                    },
+                    f,
+                    indent=4,
+                    ensure_ascii=False
+                )
+            continue
 
         #
         # Transcription

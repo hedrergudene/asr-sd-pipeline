@@ -79,7 +79,7 @@ def main(
     Path('./nemo_nfa_output').mkdir(parents=True, exist_ok=True)
 
     # Set up input
-    f = Path(input_path)
+    f = Path(input_asr_path)
     files = list(f.iterdir())
 
     # Clone repo
@@ -102,12 +102,26 @@ def main(
 
     for pathdir in files:
         # Read file
-        fn, ext = os.path.splitext(str(pathdir).split('/')[-1])
+        fn, _ = os.path.splitext(str(pathdir).split('/')[-1])
         log.info(f"Processing file {fn}:")
     
         # Read word-level transcription to fetch timestamps
         with open(os.path.join(input_asr_path, f"{fn}.json"), 'r', encoding='utf-8') as f:
             asr_dct = json.load(f)
+        # Ensure audio contains activity
+        if len(asr_dct['segments'])==0:
+            log.info(f"Audio {fn} does not contain any activity. Generating dummy metadata:")
+            with open(f"{output_path}/{fn}.json", 'w') as f:
+                json.dump(
+                    {
+                        'vad_timestamps': [], # List of dictionaries with keys 'start', 'end'
+                        'segments': []
+                    },
+                    f,
+                    indent=4,
+                    ensure_ascii=False
+                )
+            continue
         # Create config
         create_nfa_config(asr_dct['segments'], f'{input_path}/{fn}.wav')
 

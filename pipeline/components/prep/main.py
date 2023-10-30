@@ -131,6 +131,18 @@ def main(
             min_speech_duration_ms=min_speech_duration_ms,
             min_silence_duration_ms=min_silence_duration_ms
         )
+        if len(speech_timestamps)==0:
+            log.info(f"Audio {fn} does not contain any activity. Generating dummy metadata:")
+            with open(f"{output_metadata_path}/{fn}.json", 'w') as f:
+                json.dump(
+                    {
+                        'vad_timestamps': speech_timestamps, # List of dictionaries with keys 'start', 'end'
+                    },
+                    f,
+                    indent=4,
+                    ensure_ascii=False
+                )
+            continue
         save_audio(f"./prep_audios/{fn}_vad{ext}",
                  collect_chunks(speech_timestamps, wav), sampling_rate=16000)
         audio_length_s = len(wav)/16000

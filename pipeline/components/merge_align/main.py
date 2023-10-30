@@ -43,12 +43,8 @@ def main(
         log.debug(f"Processing file {filename}:")
         with open(os.path.join(input_asr_path, f"{filename}.json"), 'r', encoding='utf8') as f:
             asr_dct = json.load(f)
-        asr_input = [w for s in asr_dct['segments'] for w in s['words']]
-        with open(os.path.join(input_diarizer_path, f"{filename}.json"), 'r', encoding='utf8') as f:
-            diar_dct = json.load(f)
-        diar_input = [[s['start'], s['end'], s['speaker']] for s in diar_dct['segments']]
         # If file contains no segments, jump to the next one generating dummy metadata
-        if len(diar_dct['segments'])==0:
+        if len(asr_dct['segments'])==0:
             log.debug(f"Audio {filename} does not contain segments. Dumping dummy file and skipping:")
             # Save output
             with open(
@@ -62,14 +58,6 @@ def main(
                 json.dump(
                     {
                     'unique_id': filename,
-                    'duration': asr_dct['duration'],
-                    'processing_time': {
-                        **asr_dct['metadata'],
-                        **diar_dct['metadata'],
-                        **{
-                            'sentence_mapping_time': 0
-                        }
-                    },
                     'segments': []
                 },
                     f,
@@ -77,6 +65,11 @@ def main(
                     ensure_ascii=False
                 )
             continue
+        asr_input = [w for s in asr_dct['segments'] for w in s['words']]
+        with open(os.path.join(input_diarizer_path, f"{filename}.json"), 'r', encoding='utf8') as f:
+            diar_dct = json.load(f)
+        diar_input = [[s['start'], s['end'], s['speaker']] for s in diar_dct['segments']]
+
         # Get labels for each piece of text from ASR
         sm_time = time.time()
         wsm = get_words_speaker_mapping(asr_input, diar_input)

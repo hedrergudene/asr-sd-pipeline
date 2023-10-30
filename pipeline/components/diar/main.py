@@ -91,12 +91,26 @@ def main(
 
     for pathdir in files:
         # Read file
-        filename, extension = os.path.splitext(str(pathdir).split('/')[-1])
+        filename, _ = os.path.splitext(str(pathdir).split('/')[-1])
         log.info(f"Processing file {filename}:")
         # Read word-level transcription to fetch timestamps
         with open(os.path.join(input_asr_path, f"{filename}.json"), 'r', encoding='utf-8') as f:
             x = json.load(f)['segments']
-        word_ts = [[w['start'], w['end']] for y in x for w in y]
+        # Ensure audio contains activity
+        if len(x)==0:
+            log.info(f"Audio {filename} does not contain any activity. Generating dummy metadata:")
+            with open(f"{output_path}/{filename}.json", 'w') as f:
+                json.dump(
+                    {
+                        'vad_timestamps': [], # List of dictionaries with keys 'start', 'end'
+                        'segments': []
+                    },
+                    f,
+                    indent=4,
+                    ensure_ascii=False
+                )
+            continue
+        word_ts = [[w['start'], w['end']] for segment in x for w in segment['words']]
         # Create ./input/asr_vad_manifest.json
         create_asr_vad_config(x, f'{input_path}/{filename}.wav')
 
