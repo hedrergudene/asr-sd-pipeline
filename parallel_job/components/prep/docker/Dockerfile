@@ -4,10 +4,11 @@ FROM mcr.microsoft.com/azureml/curated/acpt-pytorch-2.0-cuda11.7
 
 # Install pip dependencies
 ## ASR
-RUN pip install 'transformers==4.34.0' \
-                'protobuf==3.20.0' \
-                'pyyaml==5.4.1' \
-                'mltable>=1.2.0' \
+RUN apt-get update && apt-get install -y sox libsndfile1 ffmpeg
+RUN pip install 'mltable>=1.2.0' \
                 'azureml-dataset-runtime[pandas,fuse]==1.53.0' \
                 'azureml-telemetry==1.53.0' \
-                'azureml-core==1.53.0'
+                'azureml-core==1.53.0' \
+                'demucs==4.0.1' \
+                'protobuf==3.20.0' \
+                'pyyaml==5.4.1'

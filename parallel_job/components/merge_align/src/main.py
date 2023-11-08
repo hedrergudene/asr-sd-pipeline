@@ -2,12 +2,15 @@
 import argparse
 import sys
 import logging as log
+from transformers import pipeline
+import torch
 import re
 import json
 import os
 import time
+import bisect
+from typing import List, Optional
 from pathlib import Path
-from deepmultilingualpunctuation import PunctuationModel
 
 # Setup logs
 root = log.getLogger()
@@ -27,7 +30,6 @@ def get_word_ts_anchor(s, e, option="mid"):
         return (s + e) / 2
     return s
 
-
 def get_words_speaker_mapping(wrd_ts, spk_ts, word_anchor_option="mid"):
     s, e, sp = spk_ts[0]
     wrd_pos, turn_idx = 0, 0
@@ -36,7 +38,7 @@ def get_words_speaker_mapping(wrd_ts, spk_ts, word_anchor_option="mid"):
         ws, we, wc, wrd = (
             wrd_dict["start"],
             wrd_dict["end"],
-            wrd_dict["score"],
+            wrd_dict["confidence"],
             wrd_dict["text"],
         )
         wrd_pos = get_word_ts_anchor(ws, we, word_anchor_option)
@@ -57,7 +59,6 @@ def get_words_speaker_mapping(wrd_ts, spk_ts, word_anchor_option="mid"):
         )
     return wrd_spk_mapping
 
-
 def get_first_word_idx_of_sentence(word_idx, word_list, speaker_list, max_words, sentence_ending_punctuations):
     is_word_sentence_end = (
         lambda x: x >= 0 and word_list[x][-1] in sentence_ending_punctuations
@@ -72,7 +73,6 @@ def get_first_word_idx_of_sentence(word_idx, word_list, speaker_list, max_words,
         left_idx -= 1
 
     return left_idx if left_idx == 0 or is_word_sentence_end(left_idx - 1) else -1
-
 
 def get_last_word_idx_of_sentence(word_idx, word_list, max_words, sentence_ending_punctuations):
     is_word_sentence_end = (
@@ -91,7 +91,6 @@ def get_last_word_idx_of_sentence(word_idx, word_list, max_words, sentence_endin
         if right_idx == len(word_list) - 1 or is_word_sentence_end(right_idx)
         else -1
     )
-
 
 def get_realigned_ws_mapping_with_punctuation(
     word_speaker_mapping, max_words_in_sentence, sentence_ending_punctuations
@@ -152,7 +151,6 @@ def get_realigned_ws_mapping_with_punctuation(
 
     return realigned_list
 
-
 def get_sentences_speaker_mapping(word_speaker_mapping, spk_ts):
     s, e, spk = spk_ts[0]
     prev_spk = spk
@@ -197,6 +195,124 @@ def get_sentences_speaker_mapping(word_speaker_mapping, spk_ts):
     return snts
 
 
+# Class to align VAD timestamps
+class SpeechTimestampsMap:
+    """Helper class to restore original speech timestamps."""
+
+    def __init__(self, chunks: List[dict], sampling_rate: int, time_precision: int = 2):
+        self.sampling_rate = sampling_rate
+        self.time_precision = time_precision
+        self.chunk_end_sample = []
+        self.total_silence_before = []
+
+        previous_end = 0
+        silent_samples = 0
+
+        for chunk in chunks:
+            silent_samples += chunk["start"] - previous_end
+            previous_end = chunk["end"]
+
+            self.chunk_end_sample.append(chunk["end"] - silent_samples)
+            self.total_silence_before.append(silent_samples / sampling_rate)
+
+    def get_original_time(
+        self,
+        time: float,
+        chunk_index: Optional[int] = None,
+    ) -> float:
+        if chunk_index is None:
+            chunk_index = self.get_chunk_index(time)
+
+        total_silence_before = self.total_silence_before[chunk_index]
+        return round(total_silence_before + time, self.time_precision)
+
+    def get_chunk_index(self, time: float) -> int:
+        sample = int(time * self.sampling_rate)
+        return min(
+            bisect.bisect(self.chunk_end_sample, sample),
+            len(self.chunk_end_sample) - 1,
+        )
+
+
+# Punctuation model
+class PunctuationModel():
+    def __init__(
+            self,
+            model:str = "oliverguhr/fullstop-punctuation-multilang-large",
+            chunk_size:int = 50,
+            overlap:int = 5
+    ) -> None:        
+        if torch.cuda.is_available():
+            self.pipe = pipeline("ner",model, aggregation_strategy="none", device=0)
+        else:
+            self.pipe = pipeline("ner",model, aggregation_strategy="none")
+        self.chunk_size = chunk_size
+        self.overlap = overlap
+
+    def preprocess(self,text):
+        #remove markers except for markers in numbers 
+        text = re.sub(r"(?<!\d)[.,;:!?](?!\d)","",text) 
+        #todo: match acronyms https://stackoverflow.com/questions/35076016/regex-to-match-acronyms
+        text = text.split()
+        return text
+
+    def restore_punctuation(self,text):        
+        result = self.predict(self.preprocess(text))
+        return self.prediction_to_text(result)
+        
+    def overlap_chunks(self,lst, n, stride=0):
+        """Yield successive n-sized chunks from lst with stride length of overlap."""
+        for i in range(0, len(lst), n-stride):
+                yield lst[i:i + n]
+
+    def predict(self,words):
+        if len(words) <= self.chunk_size:
+            self.overlap = 0
+
+        batches = list(self.overlap_chunks(words, self.chunk_size, self.overlap))
+
+        # if the last batch is smaller than the overlap, 
+        # we can just remove it
+        if len(batches[-1]) <= self.overlap:
+            batches.pop()
+
+        tagged_words = []     
+        for batch in batches:
+            # use last batch completely
+            if batch == batches[-1]: 
+                self.overlap = 0
+            text = " ".join(batch)
+            result = self.pipe(text)      
+            assert len(text) == result[-1]["end"], "chunk size too large, text got clipped"
+                
+            char_index = 0
+            result_index = 0
+            for word in batch[:len(batch)-self.overlap]:                
+                char_index += len(word) + 1
+                # if any subtoken of an word is labled as sentence end
+                # we label the whole word as sentence end        
+                label = "0"
+                while result_index < len(result) and char_index > result[result_index]["end"] :
+                    label = result[result_index]['entity']
+                    score = result[result_index]['score']
+                    result_index += 1                        
+                tagged_words.append([word,label, score])
+        
+        assert len(tagged_words) == len(words)
+        return tagged_words
+
+    def prediction_to_text(self,prediction):
+        result = ""
+        for word, label, _ in prediction:
+            result += word
+            if label == "0":
+                result += " "
+            if label in ".,?-:":
+                result += label+" "
+        return result.strip()
+
+
+
 #
 # Scoring (entry) script: entry point for execution, scoring script should contain two functions:
 # * init(): this function should be used for any costly or common preparation for subsequent inferences, e.g.,
@@ -218,15 +334,13 @@ def init():
     )
     parser.add_argument("--input_diar_path", type=str)
     parser.add_argument("--max_words_in_sentence", type=int, default=40)
-    parser.add_argument("--sentence_ending_punctuations", type=str, default='.?!')
     parser.add_argument("--output_path", type=str)
     args, _ = parser.parse_known_args()
 
     # Params
-    global input_diar_path, max_words_in_sentence, sentence_ending_punctuations, output_path
+    global input_diar_path, max_words_in_sentence, output_path
     input_diar_path = args.input_diar_path
     max_words_in_sentence = args.max_words_in_sentence
-    sentence_ending_punctuations = args.sentence_ending_punctuations
     output_path = args.output_path
 
     # Folder structure
@@ -235,7 +349,7 @@ def init():
     # Punctuation model
     global punct_model, ending_puncts, model_puncts
     punct_model = PunctuationModel(model="kredor/punctuate-all")
-    ending_puncts = sentence_ending_punctuations
+    ending_puncts = '.?!'
     model_puncts = ".,;:!?"
 
 
@@ -243,36 +357,25 @@ def run(mini_batch):
     for elem in mini_batch: # mini_batch on ASR files
         # Read file
         pathdir = Path(elem)
-        filename, _ = os.path.splitext(str(pathdir).split('/')[-1])
-        with open(pathdir, 'r', encoding='utf8') as f:
+        fn, _ = os.path.splitext(str(pathdir).split('/')[-1])
+        log.debug(f"Processing file {fn}:")
+        with open(str(pathdir), 'r', encoding='utf8') as f:
             asr_dct = json.load(f)
-        asr_input = [w for s in asr_dct['segments'] for w in s['words']]
-        with open(os.path.join(input_diar_path, f"{filename}.json"), 'r', encoding='utf8') as f:
-            diar_dct = json.load(f)
-        diar_input = [[s['start'], s['end'], s['speaker']] for s in diar_dct['segments']]
         # If file contains no segments, jump to the next one generating dummy metadata
         if len(asr_dct['segments'])==0:
-            log.info(f"Audio {filename} does not contain segments. Dumping dummy file and skipping:")
+            log.debug(f"Audio {fn} does not contain segments. Dumping dummy file and skipping:")
             # Save output
             with open(
                 os.path.join(
                     output_path,
-                    f"{filename}.json"
+                    f"{fn}.json"
                 ),
                 'w',
                 encoding='utf8'
             ) as f:
                 json.dump(
                     {
-                    'unique_id': filename,
-                    'duration': asr_dct['duration'],
-                    'processing_time': {
-                        **asr_dct['metadata'],
-                        **diar_dct['metadata'],
-                        **{
-                            'sentence_mapping_time': 0
-                        }
-                    },
+                    'unique_id': fn,
                     'segments': []
                 },
                     f,
@@ -280,6 +383,11 @@ def run(mini_batch):
                     ensure_ascii=False
                 )
             continue
+        asr_input = [w for s in asr_dct['segments'] for w in s['words']]
+        with open(os.path.join(input_diar_path, f"{fn}.json"), 'r', encoding='utf8') as f:
+            diar_dct = json.load(f)
+        diar_input = [[s['start'], s['end'], s['speaker']] for s in diar_dct['segments']]
+
         # Get labels for each piece of text from ASR
         sm_time = time.time()
         wsm = get_words_speaker_mapping(asr_input, diar_input)
@@ -298,23 +406,43 @@ def run(mini_batch):
                 if word.endswith(".."):
                     word = word.rstrip(".")
                 word_dict["word"] = word
-        wsm_final = get_realigned_ws_mapping_with_punctuation(wsm, max_words_in_sentence, sentence_ending_punctuations)
+        wsm_final = get_realigned_ws_mapping_with_punctuation(wsm, max_words_in_sentence, ending_puncts)
         ssm = get_sentences_speaker_mapping(wsm_final, diar_input)
         sm_time = time.time() - sm_time
         log.info(f"\tSentence-mapping time: {sm_time}")
+
+        #
+        # Adjust timestamps with VAD chunks
+        #
+        log.info('\tMapping VAD timestamps with transcription')
+        ts_map = SpeechTimestampsMap(asr_dct['vad_timestamps'], 16000)
+        for segment in ssm:
+                words = []
+                for word in segment['words']:
+                    # Ensure the word start and end times are resolved to the same chunk.
+                    middle = (word['start_time'] + word['end_time']) / 2
+                    chunk_index = ts_map.get_chunk_index(middle)
+                    word['start_time'] = ts_map.get_original_time(word['start_time'], chunk_index)
+                    word['end_time'] = ts_map.get_original_time(word['end_time'], chunk_index)
+                    words.append(word)
+
+                    segment['start_time'] = words[0]['start_time']
+                    segment['end_time'] = words[-1]['end_time']
+                    segment['words'] = words
+
 
         # Save output
         with open(
             os.path.join(
                 output_path,
-                f"{filename}.json"
+                f"{fn}.json"
             ),
             'w',
             encoding='utf8'
         ) as f:
             json.dump(
                 {
-                'unique_id': filename,
+                'unique_id': fn,
                 'duration': asr_dct['duration'],
                 'processing_time': {
                     **asr_dct['metadata'],

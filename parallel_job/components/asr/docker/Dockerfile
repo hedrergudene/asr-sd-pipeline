@@ -10,7 +10,5 @@ RUN pip install 'faster-whisper==0.9.0' \
                 'azureml-dataset-runtime[pandas,fuse]==1.53.0' \
                 'azureml-telemetry==1.53.0' \
                 'azureml-core==1.53.0' \
-                'soundfile==0.12.1' \
                 'cloudpickle==1.1.1' \
-                'librosa==0.10.1' \
                 'audiofile==1.3.0'

@@ -46,26 +46,6 @@ def main(
         resource_group_name=config_dct['azure']['resource_group'],
         workspace_name=config_dct['azure']['aml_workspace_name'],
     )
-
-    # Register environments
-    log.info("Check environments availability:")
-    envs = [x.name for x in ml_client.environments.list()]
-    env2version = {}
-    for x in os.listdir('./components'):
-        env_name = f"{x}_env"
-        if env_name not in envs:
-            log.info(f"Environment for component {x} not found. Creating...")
-            ml_client.environments.create_or_update(
-                Environment(
-                    build=BuildContext(path=f"./components/{x}/docker"),
-                    name=env_name
-                )
-            )
-            log.info(f"Environment for component {x} created.")
-            env2version[env_name] = "1"
-        else:
-            env2version[env_name] = str(max([int(x.version) for x in ml_client.environments.list(name=env_name)]))
-            log.info(f"Environment for component {x} was found. Latest version is {env2version[env_name]}.")
         
 
     # Set the input and output URI paths for the data.
@@ -73,6 +53,62 @@ def main(
         path=config_dct['azure']['data_filepath'],
         type=AssetTypes.URI_FOLDER,
         mode=InputOutputModes.RO_MOUNT #Alternative, DOWNLOAD
+    )
+
+    #
+    # Declare Parallel task to perform preprocessing
+    # For detailed info, check: https://learn.microsoft.com/en-us/azure/machine-learning/how-to-use-parallel-job-in-pipeline?view=azureml-api-2&tabs=python
+    #
+    prep_component = parallel_run_function(
+        name="pPrep",
+        display_name="Parallel preprocessing",
+        description="Parallel component to perform audio preprocessing",
+        inputs=dict(
+            input_path=Input(type=AssetTypes.URI_FOLDER, description="Audios to be preprocessed"),
+            vad_threshold=Input(type="integer"),
+            min_speech_duration_ms=Input(type="integer"),
+            min_silence_duration_ms=Input(type="integer"),
+            use_onnx_vad=Input(type="boolean"),
+            demucs_model=Input(type="string")
+        ),
+        outputs=dict(
+            output_audios_path=Output(type=AssetTypes.URI_FOLDER),
+            output_metadata_path=Output(type=AssetTypes.URI_FOLDER)
+        ),
+        input_data="${{inputs.input_path}}",
+        instance_count=config_dct['job']['instance_count'],
+        max_concurrency_per_instance=config_dct['job']['max_concurrency_per_instance'],
+        mini_batch_size=config_dct['job']['mini_batch_size'],
+        mini_batch_error_threshold=config_dct['job']['mini_batch_error_threshold'],
+        logging_level="DEBUG",
+        error_threshold=config_dct['job']['error_threshold'],
+        retry_settings=RetrySettings(
+            max_retries=config_dct['job']['max_retries'],
+            timeout=config_dct['job']['timeout']
+        ), 
+        task=RunFunction(
+            code="./components/prep/src",
+            entry_script="main.py",
+            environment=Environment(
+                build=BuildContext(path=f"./components/prep/docker")
+            ),
+            program_arguments="--input_path ${{inputs.input_path}} "
+                              "--vad_threshold ${{inputs.vad_threshold}} "
+                              "--min_speech_duration_ms ${{inputs.min_speech_duration_ms}} "
+                              "--min_silence_duration_ms ${{inputs.min_silence_duration_ms}} "
+                              "--use_onnx_vad ${{inputs.use_onnx_vad}} "
+                              "--demucs_model ${{inputs.demucs_model}} "
+                              "--output_audios_path ${{outputs.output_audios_path}} "
+                              "--output_metadata_path ${{outputs.output_metadata_path}} "
+                              f"--allowed_failed_percent {config_dct['job']['allowed_failed_percent']} "
+                              f"--progress_update_timeout {config_dct['job']['progress_update_timeout']} "
+                              f"--task_overhead_timeout {config_dct['job']['task_overhead_timeout']} "
+                              f"--first_task_creation_timeout {config_dct['job']['first_task_creation_timeout']} "
+                              f"--resource_monitor_interval {config_dct['job']['resource_monitor_interval']} ",
+            # All values output by run() method invocations will be aggregated into one unique file which is created in the output location.
+            # If it is not set, 'summary_only' would invoked, which means user script is expected to store the output itself.
+            #append_row_to="${{outputs.output_path}}"
+        ),
     )
 
     #
@@ -84,17 +120,17 @@ def main(
         display_name="Parallel ASR",
         description="Parallel component to perform ASR on a large amount of audios",
         inputs=dict(
-            input_path=Input(type=AssetTypes.URI_FOLDER, description="Audios to be transcribed"),
-            whisper_model_name=Input(type="string"),
+            input_audio_path=Input(type=AssetTypes.URI_FOLDER, description="Audios to be transcribed"),
+            input_metadata_path=Input(type=AssetTypes.URI_FOLDER, description="Metadata attached to audios to be transcribed"),
+            model_name=Input(type="string"),
             beam_size=Input(type="integer"),
-            vad_threshold=Input(type="number"),
-            min_speech_duration_ms=Input(type="integer"),
-            min_silence_duration_ms=Input(type="integer"),
+            word_level_timestamps=Input(type="boolean"),
+            condition_on_previous_text=Input(type="boolean"),
             compute_type=Input(type="string"),
             language_code=Input(type="string")
         ),
         outputs=dict(output_path=Output(type=AssetTypes.URI_FOLDER)),
-        input_data="${{inputs.input_path}}",
+        input_data="${{inputs.input_metadata_path}}",
         instance_count=config_dct['job']['instance_count'],
         max_concurrency_per_instance=config_dct['job']['max_concurrency_per_instance'],
         mini_batch_size=config_dct['job']['mini_batch_size'],
@@ -108,19 +144,65 @@ def main(
         task=RunFunction(
             code="./components/asr/src",
             entry_script="main.py",
-            environment = Environment(image=f"asr_env:{env2version['asr_env']}"),
-            # Alternatively, you can use:
-            #environment=Environment(
-            #    image="mcr.microsoft.com/azureml/curated/acpt-pytorch-2.0-cuda11.7",
-            #    conda_file="./components/asr/config/env.yaml",
-            #),
-            program_arguments="--whisper_model_name ${{inputs.whisper_model_name}} "
+            environment=Environment(
+                build=BuildContext(path=f"./components/asr/docker")
+            ),
+            program_arguments="--input_audio_path ${{inputs.input_audio_path}} "
+                              "--input_metadata_path ${{inputs.input_metadata_path}} "
+                              "--model_name ${{inputs.model_name}} "
                               "--beam_size ${{inputs.beam_size}} "
-                              "--vad_threshold ${{inputs.vad_threshold}} "
-                              "--min_speech_duration_ms ${{inputs.min_speech_duration_ms}} "
-                              "--min_silence_duration_ms ${{inputs.min_silence_duration_ms}} "
+                              "--word_level_timestamps ${{inputs.word_level_timestamps}} "
+                              "--condition_on_previous_text ${{inputs.condition_on_previous_text}} "
                               "--compute_type ${{inputs.compute_type}} "
                               "--language_code ${{inputs.language_code}} "
+                              "--output_path ${{outputs.output_path}} "
+                              f"--allowed_failed_percent {config_dct['job']['allowed_failed_percent']} "
+                              f"--progress_update_timeout {config_dct['job']['progress_update_timeout']} "
+                              f"--task_overhead_timeout {config_dct['job']['task_overhead_timeout']} "
+                              f"--first_task_creation_timeout {config_dct['job']['first_task_creation_timeout']} "
+                              f"--resource_monitor_interval {config_dct['job']['resource_monitor_interval']} ",
+            # All values output by run() method invocations will be aggregated into one unique file which is created in the output location.
+            # If it is not set, 'summary_only' would invoked, which means user script is expected to store the output itself.
+            #append_row_to="${{outputs.output_path}}"
+        ),
+    )
+
+    #
+    # Declare Parallel task to perform forced alignment, based on Viterbi algorithm by nvidia implementation
+    # For detailed info, check: https://learn.microsoft.com/en-us/azure/machine-learning/how-to-use-parallel-job-in-pipeline?view=azureml-api-2&tabs=python
+    #
+    nfa_component = parallel_run_function(
+        name="pNFA",
+        display_name="Parallel forced alignment",
+        description="Parallel component to perform NFA on a large amount of audios",
+        inputs=dict(
+            input_audio_path=Input(type=AssetTypes.URI_FOLDER, description="Audios to be transcribed"),
+            input_asr_path=Input(type=AssetTypes.URI_FOLDER, description="Transcriptions of audios to be analysed"),
+            model_name=Input(type="string"),
+            batch_size=Input(type="integer")
+        ),
+        outputs=dict(output_path=Output(type=AssetTypes.URI_FOLDER)),
+        input_data="${{inputs.input_asr_path}}",
+        instance_count=config_dct['job']['instance_count'],
+        max_concurrency_per_instance=config_dct['job']['max_concurrency_per_instance'],
+        mini_batch_size=config_dct['job']['mini_batch_size'],
+        mini_batch_error_threshold=config_dct['job']['mini_batch_error_threshold'],
+        logging_level="DEBUG",
+        error_threshold=config_dct['job']['error_threshold'],
+        retry_settings=RetrySettings(
+            max_retries=config_dct['job']['max_retries'],
+            timeout=config_dct['job']['timeout']
+        ), 
+        task=RunFunction(
+            code="./components/nfa/src",
+            entry_script="main.py",
+            environment=Environment(
+                build=BuildContext(path=f"./components/nfa/docker")
+            ),
+            program_arguments="--input_audio_path ${{inputs.input_audio_path}} "
+                              "--input_asr_path ${{inputs.input_asr_path}} "
+                              "--model_name ${{inputs.model_name}} "
+                              "--batch_size ${{inputs.batch_size}} "
                               "--output_path ${{outputs.output_path}} "
                               f"--allowed_failed_percent {config_dct['job']['allowed_failed_percent']} "
                               f"--progress_update_timeout {config_dct['job']['progress_update_timeout']} "
@@ -142,13 +224,13 @@ def main(
         display_name="Parallel diarization",
         description="Parallel component to perform speaker diarization on a large amount of audios",
         inputs=dict(
-            input_path=Input(type=AssetTypes.URI_FOLDER, description="Audios to be diarized"),
-            input_asr_path=Input(type=AssetTypes.URI_FOLDER, description="Transcriptions of thos audios"),
+            input_audio_path=Input(type=AssetTypes.URI_FOLDER, description="Audios to be diarized"),
+            input_asr_path=Input(type=AssetTypes.URI_FOLDER, description="Transcriptions of those audios"),
             event_type=Input(type="string"),
             max_num_speakers=Input(type="integer")
         ),
         outputs=dict(output_path=Output(type=AssetTypes.URI_FOLDER)),
-        input_data="${{inputs.input_path}}",
+        input_data="${{inputs.input_asr_path}}",
         instance_count=config_dct['job']['instance_count'],
         max_concurrency_per_instance=config_dct['job']['max_concurrency_per_instance'],
         mini_batch_size=config_dct['job']['mini_batch_size'],
@@ -162,13 +244,11 @@ def main(
         task=RunFunction(
             code="./components/diar/src",
             entry_script="main.py",
-            environment = Environment(image=f"diar_env:{env2version['diar_env']}"),
-            # Alternatively, you can use:
-            #environment=Environment(
-            #    image="mcr.microsoft.com/azureml/curated/acpt-pytorch-2.0-cuda11.7",
-            #    conda_file="./components/asr/config/env.yaml",
-            #),            
-            program_arguments="--input_asr_path ${{inputs.input_asr_path}} "
+            environment=Environment(
+                build=BuildContext(path=f"./components/diar/docker")
+            ),
+            program_arguments="--input_audio_path ${{inputs.input_audio_path}} "
+                              "--input_asr_path ${{inputs.input_asr_path}} "
                               "--event_type ${{inputs.event_type}} "
                               "--max_num_speakers ${{inputs.max_num_speakers}} "
                               "--output_path ${{outputs.output_path}} "
@@ -212,15 +292,12 @@ def main(
         task=RunFunction(
             code="./components/merge_align/src",
             entry_script="main.py",
-            environment = Environment(image=f"merge_align_env:{env2version['merge_align_env']}"),
-            # Alternatively, you can use:
-            #environment=Environment(
-            #    image="mcr.microsoft.com/azureml/curated/acpt-pytorch-2.0-cuda11.7",
-            #    conda_file="./components/asr/config/env.yaml",
-            #),            
-            program_arguments="--input_diar_path ${{inputs.input_diar_path}} "
+            environment=Environment(
+                build=BuildContext(path=f"./components/merge_align/docker")
+            ),          
+            program_arguments="--input_asr_path ${{inputs.input_asr_path}} "
+                              "--input_diar_path ${{inputs.input_diar_path}} "
                               "--max_words_in_sentence ${{inputs.max_words_in_sentence}} "
-                              "--sentence_ending_punctuations ${{inputs.sentence_ending_punctuations}} "
                               "--output_path ${{outputs.output_path}} "
                               f"--allowed_failed_percent {config_dct['job']['allowed_failed_percent']} "
                               f"--progress_update_timeout {config_dct['job']['progress_update_timeout']} "
@@ -242,32 +319,49 @@ def main(
     )
     def parallel_job(input_dts):
         
-        #ASR
+        # Preprocessing
+        prep_node = prep_component(
+            input_path=input_dts,
+            vad_threshold=config_dct['preprocessing']['vad_threshold'],
+            min_speech_duration_ms=config_dct['preprocessing']['min_speech_duration_ms'],
+            min_silence_duration_ms=config_dct['preprocessing']['min_silence_duration_ms'],
+            use_onnx_vad=config_dct['preprocessing']['use_onnx_vad'],
+            demucs_model=config_dct['preprocessing']['demucs_model']
+        )
+
+        # ASR
         asr_node = asr_component(
-            input_path = input_dts,
-            whisper_model_name = config_dct['asr']['whisper_model_name'],
+            input_audio_path = prep_node.outputs.output_audios_path,
+            input_metadata_path = prep_node.outputs.output_metadata_path,
+            model_name = config_dct['asr']['model_name'],
             beam_size = config_dct['asr']['beam_size'],
-            vad_threshold = config_dct['asr']['vad_threshold'],
-            min_speech_duration_ms = config_dct['asr']['min_speech_duration_ms'],
-            min_silence_duration_ms = config_dct['asr']['min_silence_duration_ms'],
+            word_level_timestamps = config_dct['asr']['word_level_timestamps'],
+            condition_on_previous_text = config_dct['asr']['condition_on_previous_text'],
             compute_type = config_dct['asr']['compute_type'],
             language_code = config_dct['asr']['language_code']
         )
 
-        #Diarization
+        # NFA
+        nfa_node = nfa_component(
+            input_audio_path=prep_node.outputs.output_audios_path,
+            input_asr_path=asr_node.outputs.output_path,
+            model_name=config_dct['fa']['beam_size'],
+            batch_size=config_dct['fa']['batch_size']     
+        )
+
+        # Diarization
         diar_node = diar_component(
-            input_path = input_dts,
-            input_asr_path = asr_node.outputs.output_path,
+            input_path = prep_node.outputs.output_audios_path,
+            input_asr_path = nfa_node.outputs.output_path,
             event_type = config_dct['diarization']['event_type'],
             max_num_speakers = config_dct['diarization']['max_num_speakers']
         )
 
-        #Merge&Align
+        # Merge&Align
         ma_node = ma_component(
-            input_asr_path = asr_node.outputs.output_path,
+            input_asr_path = nfa_node.outputs.output_path,
             input_diar_path = diar_node.outputs.output_path,
-            max_words_in_sentence = config_dct['align']['max_words_in_sentence'],
-            sentence_ending_punctuations = config_dct['align']['sentence_ending_punctuations']
+            max_words_in_sentence = config_dct['align']['max_words_in_sentence']
         )
 
         return {

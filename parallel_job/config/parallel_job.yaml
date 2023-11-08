@@ -9,15 +9,26 @@ azure:
   experiment_name : 'asr-msdd-inference'
   data_filepath: 'XXXXXX'
 
+preprocessing:
+  vad_threshold: 0.75
+  min_speech_duration_ms: 250
+  min_silence_duration_ms: 100
+  speech_pad_ms: 400
+  use_onnx_vad: True
+  demucs_model: 'htdemucs'
+
 asr:
-  whisper_model_name: 'large-v2'
-  align_model_name: 'jonatasgrosman/wav2vec2-large-xlsr-53-spanish'
+  model_name: 'large-v2'
+  num_workers: 4
   beam_size: 5
-  vad_threshold: 0.5
-  min_speech_duration_ms: 200
-  min_silence_duration_ms: 500
+  word_level_timestamps: true
+  condition_on_previous_text: true
   language_code: 'es'
   compute_type: 'float16'
+
+fa:
+  model_name: "stt_es_fastconformer_hybrid_large_pc"
+  batch_size: 16
 
 diarization:
   event_type: 'telephonic' #could also be 'meeting'
@@ -25,7 +36,6 @@ diarization:
 
 align:
   max_words_in_sentence: 60
-  sentence_ending_punctuations: '.?!'
 
 job:
   instance_count: 2
