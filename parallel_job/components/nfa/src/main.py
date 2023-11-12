@@ -127,6 +127,7 @@ def run(mini_batch):
         # Read file
         pathdir = Path(elem)
         fn, ext = os.path.splitext(str(pathdir).split('/')[-1])
+        log.info(f"Processing file {fn}:")
 
         # Read word-level transcription to fetch timestamps
         with open(str(pathdir), 'r', encoding='utf-8') as f:
