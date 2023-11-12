@@ -93,9 +93,14 @@ def init():
     parser.add_argument("--output_path", type=str)
     args, _ = parser.parse_known_args()
 
+    # Diarization parameters
+    global msdd_model, msdd_cfg, input_audio_path, output_path
+    input_audio_path = args.input_audio_path
+    output_path = args.output_path
+
     # Folder structure
     Path('./input').mkdir(parents=True, exist_ok=True)
-    Path('./nemo_output').mkdir(parents=True, exist_ok=True)
+    Path('./nemo_diar_output').mkdir(parents=True, exist_ok=True)
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
     # Config files
@@ -107,18 +112,13 @@ def init():
     with open("./input/diar_infer_meeting.yaml", mode="wb") as f:
         f.write(response.content)
 
-    # Diarization
-    global msdd_model, msdd_cfg, input_audio_path, output_path
-    ## Input transcriptions path
-    input_audio_path = args.input_audio_path
-    output_path = args.output_path
-    ## Read NeMo MSDD configuration file
+    # Read NeMo MSDD configuration file
     msdd_cfg = OmegaConf.load(f'./input/diar_infer_{args.event_type}.yaml')
     msdd_cfg.diarizer.clustering.parameters.max_num_speakers = args.max_num_speakers
     msdd_cfg.diarizer.vad.external_vad_manifest='./input/asr_vad_manifest.json'
     msdd_cfg.diarizer.asr.parameters.asr_based_vad = True
     create_msdd_config(['sample_audio.wav']) # initialise msdd cfg
-    ## Initialize NeMo MSDD diarization model
+    # Initialize NeMo MSDD diarization model
     msdd_model = OfflineDiarWithASR(msdd_cfg.diarizer)
 
 
