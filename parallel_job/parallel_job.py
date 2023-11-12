@@ -65,7 +65,7 @@ def main(
         description="Parallel component to perform audio preprocessing",
         inputs=dict(
             input_path=Input(type=AssetTypes.URI_FOLDER, description="Audios to be preprocessed"),
-            vad_threshold=Input(type="integer"),
+            vad_threshold=Input(type="number"),
             min_speech_duration_ms=Input(type="integer"),
             min_silence_duration_ms=Input(type="integer"),
             use_onnx_vad=Input(type="boolean"),
@@ -122,7 +122,7 @@ def main(
         inputs=dict(
             input_audio_path=Input(type=AssetTypes.URI_FOLDER, description="Audios to be transcribed"),
             input_metadata_path=Input(type=AssetTypes.URI_FOLDER, description="Metadata attached to audios to be transcribed"),
-            model_name=Input(type="string"),
+            whisper_model_name=Input(type="string"),
             beam_size=Input(type="integer"),
             word_level_timestamps=Input(type="boolean"),
             condition_on_previous_text=Input(type="boolean"),
@@ -149,7 +149,7 @@ def main(
             ),
             program_arguments="--input_audio_path ${{inputs.input_audio_path}} "
                               "--input_metadata_path ${{inputs.input_metadata_path}} "
-                              "--model_name ${{inputs.model_name}} "
+                              "--whisper_model_name ${{inputs.whisper_model_name}} "
                               "--beam_size ${{inputs.beam_size}} "
                               "--word_level_timestamps ${{inputs.word_level_timestamps}} "
                               "--condition_on_previous_text ${{inputs.condition_on_previous_text}} "
@@ -178,7 +178,7 @@ def main(
         inputs=dict(
             input_audio_path=Input(type=AssetTypes.URI_FOLDER, description="Audios to be transcribed"),
             input_asr_path=Input(type=AssetTypes.URI_FOLDER, description="Transcriptions of audios to be analysed"),
-            model_name=Input(type="string"),
+            nfa_model_name=Input(type="string"),
             batch_size=Input(type="integer")
         ),
         outputs=dict(output_path=Output(type=AssetTypes.URI_FOLDER)),
@@ -201,7 +201,7 @@ def main(
             ),
             program_arguments="--input_audio_path ${{inputs.input_audio_path}} "
                               "--input_asr_path ${{inputs.input_asr_path}} "
-                              "--model_name ${{inputs.model_name}} "
+                              "--nfa_model_name ${{inputs.nfa_model_name}} "
                               "--batch_size ${{inputs.batch_size}} "
                               "--output_path ${{outputs.output_path}} "
                               f"--allowed_failed_percent {config_dct['job']['allowed_failed_percent']} "
@@ -274,8 +274,7 @@ def main(
         inputs=dict(
             input_asr_path=Input(type=AssetTypes.URI_FOLDER, description="Audios to be diarized"),
             input_diar_path=Input(type=AssetTypes.URI_FOLDER, description="Transcriptions of those audios"),
-            max_words_in_sentence=Input(type="integer"),
-            sentence_ending_punctuations=Input(type="string")
+            max_words_in_sentence=Input(type="integer")
         ),
         outputs=dict(output_path=Output(type=AssetTypes.URI_FOLDER)),
         input_data="${{inputs.input_asr_path}}",
@@ -333,7 +332,7 @@ def main(
         asr_node = asr_component(
             input_audio_path = prep_node.outputs.output_audios_path,
             input_metadata_path = prep_node.outputs.output_metadata_path,
-            model_name = config_dct['asr']['model_name'],
+            whisper_model_name = config_dct['asr']['model_name'],
             beam_size = config_dct['asr']['beam_size'],
             word_level_timestamps = config_dct['asr']['word_level_timestamps'],
             condition_on_previous_text = config_dct['asr']['condition_on_previous_text'],
@@ -345,13 +344,13 @@ def main(
         nfa_node = nfa_component(
             input_audio_path=prep_node.outputs.output_audios_path,
             input_asr_path=asr_node.outputs.output_path,
-            model_name=config_dct['fa']['beam_size'],
+            nfa_model_name=config_dct['fa']['model_name'],
             batch_size=config_dct['fa']['batch_size']     
         )
 
         # Diarization
         diar_node = diar_component(
-            input_path = prep_node.outputs.output_audios_path,
+            input_audio_path = prep_node.outputs.output_audios_path,
             input_asr_path = nfa_node.outputs.output_path,
             event_type = config_dct['diarization']['event_type'],
             max_num_speakers = config_dct['diarization']['max_num_speakers']

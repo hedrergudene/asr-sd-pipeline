@@ -7,7 +7,6 @@ import os
 import time
 import json
 import torch
-import pandas as pd
 from faster_whisper import WhisperModel
 
 # Setup logs
@@ -51,7 +50,7 @@ def init():
         allow_abbrev=False, description="ParallelRunStep Agent"
     )
     parser.add_argument("--input_audio_path", type=str)
-    parser.add_argument("--model_name", type=str, default='large-v2')
+    parser.add_argument("--whisper_model_name", type=str, default='large-v2')
     parser.add_argument("--beam_size", type=int, default=5)
     parser.add_argument("--word_level_timestamps", type=bool, default=True)
     parser.add_argument("--condition_on_previous_text", type=bool, default=True)
@@ -79,7 +78,7 @@ def init():
     # ASR models
     global whisper_model
     whisper_model = WhisperModel(
-        args.whisper_model_name,
+        model_size_or_path=args.whisper_model_name,
         device=device,
         compute_type=args.compute_type
     )
@@ -117,7 +116,7 @@ def run(mini_batch):
         log.info(f"\tASR:")
         transcription_time = time.time()
         segments, _ = whisper_model.transcribe(
-            f"{input_audio_path}/{fn}{ext}",
+            f"{input_audio_path}/{fn}.wav",
             beam_size=beam_size,
             language=language_code,
             condition_on_previous_text=condition_on_previous_text,

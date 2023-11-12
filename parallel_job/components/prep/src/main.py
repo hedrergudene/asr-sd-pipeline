@@ -24,7 +24,7 @@ handler.setFormatter(formatter)
 root.addHandler(handler)
 
 # Helper method to decode an audio
-def preprocess_audio(input_path, output_path, filename):
+def preprocess_audio(input_filepath, output_filepath, filename):
     """Method to preprocess audios with ffmpeg, using the following configuration:
         * '-acodec': Specifies the audio codec to be used. In this case, it's set to 'pcm_s16le',
                      which stands for 16-bit little-endian PCM (Pulse Code Modulation).
@@ -38,8 +38,8 @@ def preprocess_audio(input_path, output_path, filename):
         filename (str): Name of the file (with extension) you are processing.
     """
     fn, ext = os.path.splitext(filename)
-    command = ['ffmpeg', '-i', f"{input_path}/{filename}", '-acodec', 'pcm_s16le', '-ac', '1', '-ar', '16000', f"{output_path}/{fn}.wav"]
-    out = subprocess.run(command,stdout=subprocess.PIPE,stdin=subprocess.PIPE)
+    command = ['ffmpeg', '-i', f"{input_filepath}/{filename}", '-acodec', 'pcm_s16le', '-ac', '1', '-ar', '16000', f"{output_filepath}/{fn}.wav"]
+    out = subprocess.run(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,stdin=subprocess.PIPE)
     if out.returncode!=0:
         raise RuntimeError(f"An error occured during audio preprocessing. Logs are: {out.stderr}")
 
@@ -126,7 +126,7 @@ def run(mini_batch):
         prep_time = time.time()
         
         # Standarise format
-        preprocess_audio('/'.join(str(pathdir).split('/')[:-1]), './prep_audios', fn)
+        preprocess_audio('/'.join(str(pathdir).split('/')[:-1]), './prep_audios', f"{fn}{ext}")
 
         # VAD
         wav = read_audio(f"./prep_audios/{fn}", sampling_rate=16000)

@@ -85,17 +85,23 @@ def init():
     )
     parser.add_argument("--input_audio_path", type=str)
     parser.add_argument("--input_asr_path", type=str)
-    parser.add_argument("--model_name", type=str, default='stt_es_fastconformer_hybrid_large_pc')
+    parser.add_argument("--nfa_model_name", type=str, default='stt_es_fastconformer_hybrid_large_pc')
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--output_path", type=str)
     args, _ = parser.parse_known_args()
 
     # Params
-    global input_audio_path, model_name, batch_size, output_path
+    global input_audio_path, nfa_model_name, batch_size, output_path
     input_audio_path = args.input_audio_path
-    model_name = args.model_name
+    nfa_model_name = args.nfa_model_name
     batch_size = args.batch_size
     output_path = args.output_path
+
+    # Folder structure
+    Path('./NeMo').mkdir(parents=True, exist_ok=True)
+    Path('./input').mkdir(parents=True, exist_ok=True)
+    Path('./nemo_nfa_output').mkdir(parents=True, exist_ok=True)
+    Path(output_path).mkdir(parents=True, exist_ok=True)
 
     # Clone repo
     result = sp.run(
@@ -114,11 +120,6 @@ def init():
     if result.returncode!=0:
         log.error(f"NeMo repo cloning raised an exception: {result.stderr}")
         raise RuntimeError(f"NeMo repo cloning raised an exception: {result.stderr}")
-
-    # Folder structure
-    Path('./NeMo').mkdir(parents=True, exist_ok=True)
-    Path('./nemo_nfa_output').mkdir(parents=True, exist_ok=True)
-    Path(output_path).mkdir(parents=True, exist_ok=True)
 
 
 def run(mini_batch):
@@ -157,7 +158,7 @@ def run(mini_batch):
             [
                 sys.executable,
                 'NeMo/tools/nemo_forced_aligner/align.py',
-                f'pretrained_name="{model_name}"',
+                f'pretrained_name="{nfa_model_name}"',
                 'manifest_filepath="./input/nfa_manifest.jsonl"',
                 'output_dir="./nemo_nfa_output"',
                 f'batch_size={batch_size}',
