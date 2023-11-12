@@ -41,6 +41,10 @@ Finally, in order to enhance natural language transcriptions quality and readabi
 
 <img src="images/summary.PNG"  width="100%" height="70%" style="display: block; margin: 0 auto">
 
+When it comes to scalability, parallelisation plays a pivotal role. In this direction, we adopted `parallel_job` solution included in the *AML* toolkit, that allows to distribute your input across a defined number of devices asynchronously to speedup inference. Notice that there is not an immediate extrapolation of the code from standard pipelines to parallel components.
+
+<img src="https://learn.microsoft.com/en-us/azure/machine-learning/media/how-to-use-parallel-job-in-pipeline/how-entry-script-works-in-parallel-job.png?view=azureml-api-2#lightbox"  width="60%" height="60%" style="display: block; margin: 0 auto">
+
 
 ## Components
 
@@ -116,6 +120,14 @@ Once the environment has been created, permissions for service account have been
 cd pipeline
 python pipeline.py --config_path ./config/pipeline.yaml
 ```
+
+On the other hand, to take advantage of components parallelisation, make use of the `parallel_job` folder:
+
+```
+cd parallel_job
+python parallel_job.py --config_path ./config/parallel_job.yaml
+```
+
 
 ## Call for contributions
 
