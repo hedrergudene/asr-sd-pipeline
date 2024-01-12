@@ -1,0 +1,69 @@
+aml:
+  subscription_id : 'XXXXXX'
+  resource_group : 'XXXXXX'
+  workspace_name : 'XXXXXX'
+  computing:
+    cpu_cluster: 'XXXXXX'
+    gpu_cluster_t4 : 'XXXXXX'
+    gpu_cluster_a100 : 'XXXXXX'
+  project_name : 'stt_pipeline'
+
+blob: # azureml://datastores/<data_store_name>/paths/<path> (blob_path might have some folder structure underneath)
+  storage_id: 'XXXXXX'
+  container_name: 'XXXXXX'
+  input_path: 'XXXXXX'
+  output_path: 'XXXXXX'
+  
+keyvault:
+  name: 'XXXXXX'
+  secret_tenant_sp: "XXXXXX"
+  secret_client_sp: "XXXXXX"
+  secret_sp: "XXXXXX"
+  pk_secret: 'XXXXXX'
+  pk_pass_secret: 'XXXXXX'
+  pubk_secret: 'XXXXXX'
+
+cosmosdb:
+  name: 'XXXXXX'
+  collection: 'XXXXXX'
+  cs_secret: 'XXXXXX'
+
+preprocessing:
+  vad_threshold: 0.75
+  min_speech_duration_ms: 250
+  min_silence_duration_ms: 200
+  demucs_model: 'htdemucs'
+
+asr:
+  model_name: "large-v3"
+  num_workers: 4
+  beam_size: 5
+  word_level_timestamps: true
+  condition_on_previous_text: true
+  language_code: 'es'
+  compute_type: 'float16'
+
+fa:
+  model_name: "stt_es_fastconformer_hybrid_large_pc"
+  batch_size: 16
+
+diarization:
+  event_type: 'telephonic' #could also be 'meeting'
+  max_num_speakers: 3
+
+align:
+  max_words_in_sentence: 60
+
+job:
+  instance_count: 2
+  max_concurrency_per_instance: 1
+  mini_batch_size: "1"
+  mini_batch_error_threshold: 1
+  error_threshold: 1
+  max_retries: 2
+  timeout: 3600
+  allowed_failed_percent: 0
+  progress_update_timeout: 60000
+  task_overhead_timeout: 3600
+  first_task_creation_timeout: 60000
+  resource_monitor_interval: 0

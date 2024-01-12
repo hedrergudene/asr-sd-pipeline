@@ -1,0 +1,49 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
+type: command
+
+# General information about the component
+name: remove_stt_data
+display_name: Remove STT data
+description: A template component to drop intermediate data from target container after azureml pipeline run.
+tags:
+  author: IA-Cognitive
+
+# Inputs and outputs
+inputs:
+  input_path:
+    type: uri_folder
+    optional: false
+  storage_id:
+    type: string
+    optional: false
+  container_name:
+    type: string
+    optional: false
+  blob_filepath:
+    type: string
+    optional: false
+
+# The source code path of it's defined in the code section and when the
+# component is run in cloud, all files from that path will be uploaded
+# as the snapshot of this component
+code: ./
+
+# Environment takes care of source image and dependencies
+# https://learn.microsoft.com/en-us/azure/machine-learning/how-to-manage-environments-v2?view=azureml-api-2&tabs=cli
+environment: "azureml:remove_stt_data_env:1"
+
+# Cluster instance
+compute: azureml:cpu-cluster
+
+# Distribution type
+distribution:
+  type: mpi
+  process_count_per_instance: 1 # Number of nodes per instance
+
+# How many VMs we need
+resources:
+  instance_count: 1 # Number of instances to create
+
+# The command section specifies the command to execute while running
+# this component
+command: python ./main.py --input_path ${{inputs.input_path}} --storage_id ${{inputs.storage_id}} --container_name ${{inputs.container_name}} --blob_filepath ${{inputs.blob_filepath}}

@@ -46,70 +46,40 @@ When it comes to scalability, parallelisation plays a pivotal role. In this dire
 <img src="https://learn.microsoft.com/en-us/azure/machine-learning/media/how-to-use-parallel-job-in-pipeline/how-entry-script-works-in-parallel-job.png?view=azureml-api-2#lightbox"  width="60%" height="60%" style="display: block; margin: 0 auto">
 
 
-## Components
 
-### Nomenclature
+## Structure
 
-Each of the pipeline components is executed within an *AML* computing cluster. These are determined by the **virtual machines** that host them, and whose nomenclature has the following meaning:
-
-* `STANDARD`: *Tier* recommended for VM availability purposes.
-* `D`: VMs for any purpose.
-* `L`: Optimized in terms of storage.
-* `S`: Provides *premium* storage and offers a local SSD for *cache*.
-* `M`: Optimized in terms of memory.
-* `G`: Optimized in terms of memory and storage.
-* `E`: Optimized for *multi-thread* operations in memory.
-* `V`: Optimized for intensive graphics work and remote viewing *workloads*.
-* `C`: Optimized for high performance computing and ML *workloads*.
-* `N`: Available GPU(s).
-
-In order to optimize the resources we use in each module of our process, the following virtual machines are recommended:
-
-* `cpu-cluster`: The default host is `STANDARD_DS11_v2`. In case four processing *cores* are needed, consider using `STANDARD_DS3_v2`, and for CPU-intensive *Machine Learning* training, it is recommended to choose `Standard_DC16ds_v3`.
-* `gpu-cluster`: Our recommendation is to use one like `Standard_NC16as_T4_v3` for its exceptional speed-cost tradeoff. Make sure you use a GPU with nvidia CUDA compute capabilities beyond 7.5, to make use of Turing tensor cores.
+This service's main cornerstones are scalability, robustness and ease to deploy. In this direction, an API interface is provided to easily request batch processing jobs. While most of the parameters have default options, configuration related to storage paths, noSQL database credentials and secrets is required.
 
 
-### Structure
+## Setup
 
-Pipelines, and in particular  AML components, are based on those of [*Kubeflow*](https://www.kubeflow.org/docs/components/pipelines/v1/sdk-v2/), so that the reader will be familiaried with the structure of these projects if he has previously used them. We recommend, in order to maintain good practices and avoid possible errors, to maintain the standardised format that is followed in the components of this project, and to freely manipulate the part of them where the code is entered, conveniently adjusting the other files.
+## Storage
+Input and output containers must be defined as AzureML Datastores. The reason behind is that we manage intermediate data to not generate an excessive amount of residual files, leading to greater costs; this is particularly relevant due to the fact that processed audios are one of those files. It can be achieved following [this steps](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-datastore?view=azureml-api-2&tabs=sdk-identity-based-access%2Csdk-adls-identity-access%2Csdk-azfiles-accountkey%2Csdk-adlsgen1-identity-access%2Csdk-onelake-identity-access).
 
-For those components that require GPU acceleration, the corresponding *script* that launches the *job* with the pipeline that contains it is prepared to automatically detect what type of virtual machine is being used, and suitably adapt the configuration file associated with these components. All available VMs in your timezone can be collected from the following [link](https://azureprice.net/).
+## Tracking
+Ideally, input and output blob paths inside those containers should vary, or processed data should be moved/deleted after each job. If this task is not handled, it would not raise any errors nor processing duplications, as we register every `unique_id` in a cosmosDB database, but potentially many unnecessary requests to that cosmosDB database and job inputs to each component will be ingested, leading to a suboptimal performance of your services.
 
-Now let's see how a component is organized:
+## Keyvaults
+An extensive usage of Azure Keyvault resource is made throughout the process. To be more precise, an asymmetric encription protocol (PGP) is used to ensure that anyone can encrypt data, but a limited number of profiles can decrypt it:
 
-```
-  ├──<component-name>                         
-  │   ├── config                              
-  │   │   ├── multi_gpu_config.yaml           # Accelerate config for DistributedDataParallel
-  │   │   └── single_gpu_config.yaml          # Accelerate config for single-GPU training
-  │   ├── docker      
-  │   │   └── Dockerfile                      # File with base image and dependencies (AML will do everything else)
-  │   ├── src                                 # Scripts containing additional functionalities
-  │   │   ├── dataset.py
-  │   │   ├── fitter.py
-  │   │   ├── model.py  
-  │   │   ...
-  │   │   └── utils.py
-  │   ├── .amlignore                             
-  │   ├── <component-name>.yaml               # Single-GPU component definition
-  │   ├── <component-name>_distributed.yaml   # Multi-GPU component definition
-  │   └── main.py                             # Entrypoint
-  
-```
+* `pubk_secret`: Holds the secret to the public key.
+* `pk_secret`: Holds the secret to the private key.
+* `pk_pass_secret`: Holds the secret to the private key's password.
 
-For potential integrations with large-scale training, requiring specific use of optimizers such as [*DeepSpeed*](https://www.deepspeed.ai/) or other types of parallelization such as *DistributedTensorParallel*, please request assistance from the contributors of this repo, to adapt both the configuration files and the virtual execution environment to your needs.
+These last two, however, are disabled; i.e., they must be enabled beforehand to access the secret. To that end, a service principal account credentials are also stored as secrets in the same keyvault, including (respectively) tenant, client and passwords under the identifiers:
 
-### Register
-
-Hosting your code in a repository is the best way to track changes and serialise releases. However, there are additional functionalities within the AML ecosystem that allow users to *plug and play* with pipelines. By opening a terminal and running the shell script contained in `./setup` folder, with `<workspace-name>` and `<resource-group-name>` as parameters, an instance of your custom components will be created, so that you can prepare, run and monitor pipeline workflows using only the UI (in the `Pipelines` section). 
+* `secret_tenant_sp`
+* `secret_client_sp`
+* `secret_sp`
 
 ## IAM
-
-AML computing clusters will use a service account to which we must assign a series of roles in order to execute these processes successfully:
+AML computing clusters, together with AzuremL endpoint, will use a service account to which we must assign a series of roles in order to execute these processes successfully:
 * Storage Blob Data Contributor (in storage account resource)
 * Storage Queue Data Contributor (in storage account resource)
 * AzureML Data Scientist (in AML resource)
 * Access to [KeyVaults](https://learn.microsoft.com/en-us/azure/key-vault/general/assign-access-policy?tabs=azure-portal)
+* Read and write (documents) roles in cosmosDB resource. Database and collection creation is not necessary (see `Setup`).
 
 
 ## Quickstart
@@ -117,15 +87,8 @@ AML computing clusters will use a service account to which we must assign a seri
 Once the environment has been created, permissions for service account have been granted and you filled the configuration file with your own data, the fastest way to run AML pipelines is by opening a terminal and running the provided script to start an AzureML job:
 
 ```
-cd pipeline
-python pipeline.py --config_path ./config/pipeline.yaml
-```
-
-On the other hand, to take advantage of components parallelisation, make use of the `parallel_job` folder:
-
-```
-cd parallel_job
-python parallel_job.py --config_path ./config/parallel_job.yaml
+cd stt_aml_deploy
+python online_endpoint.py --config_path ./config/online_endpoint.yaml
 ```
 
 
@@ -140,6 +103,7 @@ Despite including and end-to-end solution to model design in AML, the following 
 - [X] Serialise pipeline implementation to avoid Microsoft bugs on `parallel_run_function`.
 - [X] End-to-end, monolitic implementation using keyvaults and security protocols.
 - [X] Enhance benchmark logging and CUDA capabilities checking.
+- [X] API batch service deployment.
 - [ ] Make sentence alignment more sensitive to short texts.
 
 

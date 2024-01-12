@@ -1,7 +1,7 @@
 $schema: https://azuremlschemas.azureedge.net/latest/amlCompute.schema.json
-name: cpu-cluster
+name: gpu-cluster-t4
 type: amlcompute
-size: STANDARD_DS11_v2 # In case 4 cores are needed, switch to STANDARD_DS3_v2. For large ML trainings in CPU, use Standard_D13_v2
+size: Standard_NC16as_T4_v3 # (16 cores, 110 GB RAM, 352 GB disk)
 min_instances: 0
 max_instances: 32
 idle_time_before_scale_down: 120
