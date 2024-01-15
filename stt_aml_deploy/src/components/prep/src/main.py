@@ -35,7 +35,10 @@ class CredentialManager():
             keyvault_name:str,
             secret_tenant_sp:str=None,
             secret_client_sp:str=None,
-            secret_sp:str=None
+            secret_sp:str=None,
+            puk_secret_name:str=None,
+            prk_secret_name:str=None,
+            prk_password_secret_name:str=None,
     ) -> None:
         """Base class to handle PGP encryption system in Azure.
 
@@ -50,6 +53,17 @@ class CredentialManager():
         self.secret_client_sp = secret_client_sp
         self.secret_sp = secret_sp
         self.login = None
+        # Import public key from PGP
+        puk_secret_value = self.fetch_secret(self.default_login(), puk_secret_name)
+        self.public_key, _ = pgpy.PGPKey.from_blob(puk_secret_value)
+        # Retrieve pk secrets
+        sc = self.sp_login()
+        self.enable_secret(sc, prk_secret_name, True)
+        self.enable_secret(sc, prk_password_secret_name, True)
+        pk_secret_value = self.fetch_secret(sc, prk_secret_name)
+        self.pk_pass_secret_value = self.fetch_secret(sc, prk_password_secret_name)
+        # Fetch pk key
+        self.private_key, _ = pgpy.PGPKey.from_blob(pk_secret_value)
 
 
     def encrypt(
@@ -57,7 +71,6 @@ class CredentialManager():
             input_path:str,
             output_path:str,
             filenames:List[str],
-            puk_secret_name:str,
             remove_input:bool=False,
             secret_client:SecretClient=None
     ) -> None:
@@ -67,10 +80,6 @@ class CredentialManager():
         # Default login
         if ((self.login!='default') | (secret_client is None)):
             secret_client = self.default_login()
-        # Fetch secret
-        secret_value = secret_client.get_secret(puk_secret_name).value
-        # Import public key from PGP
-        public_key, _ = pgpy.PGPKey.from_blob(secret_value)
         # Loop
         for filename in filenames:
             input_filepath = os.path.join(input_path, filename)
@@ -81,7 +90,7 @@ class CredentialManager():
                 continue
             with open(input_filepath, 'rb') as f:
                 message = pgpy.PGPMessage.new(f.read())
-            encrypted_message = public_key.encrypt(message)
+            encrypted_message = self.public_key.encrypt(message)
             encrypted_message = str(encrypted_message)
             with open(output_filepath+'.pgp', "w") as f:
                 f.write(encrypted_message)
@@ -95,8 +104,6 @@ class CredentialManager():
             input_path: str,
             output_path: str,
             filenames:List[str],
-            prk_secret_name:str,
-            prk_password_secret_name:str,
             remove_input:bool=False,
             secret_client:SecretClient=None
     ) -> None:
@@ -106,11 +113,6 @@ class CredentialManager():
         # Service principal login
         if ((self.login!='sp') | (secret_client is None)):
             secret_client = self.sp_login()
-        # Retrieve pk secrets
-        pk_secret_value = self.fetch_disabled_secret(secret_client, prk_secret_name)
-        pk_pass_secret_value = self.fetch_disabled_secret(secret_client, prk_password_secret_name)
-        # Fetch pk key
-        private_key, _ = pgpy.PGPKey.from_blob(pk_secret_value)
         # Loop
         for filename in filenames:
             input_filepath = os.path.join(input_path, filename)
@@ -118,7 +120,7 @@ class CredentialManager():
             if ext not in ['.pgp', '.enc']:
                 log.warning(f"File {fn} is already decrypted. Skipping...")
                 continue
-            with private_key.unlock(pk_pass_secret_value) as ukey:
+            with self.private_key.unlock(self.pk_pass_secret_value) as ukey:
                 if ukey:
                     encrypted_message = pgpy.PGPMessage.from_file(input_filepath)
                     decrypted_message = ukey.decrypt(encrypted_message).message
@@ -171,19 +173,19 @@ class CredentialManager():
     ) -> None:
         if self.login!='sp':
             secret_client = self.sp_login()
-        secret_client.update_secret_properties(secret_name, enabled=enable)
+        if secret_client.get_secret(secret_name).properties.enabled!=enable:
+            secret_client.update_secret_properties(secret_name, enabled=enable)
+        else:
+            s = 'enabled' if enable else 'disabled'
+            log.info(f"Secret {secret_name} is already {s}.")
     
 
-    def fetch_disabled_secret(
+    def fetch_secret(
             self,
             secret_client:SecretClient,
             secret_name:str
     ) -> str:
-        if self.login!='sp':
-            secret_client = self.sp_login()
-        self.enable_secret(secret_client, secret_name, True)
         secret_value = secret_client.get_secret(secret_name).value
-        self.enable_secret(secret_client, secret_name, False)
         return secret_value
 
 
@@ -287,7 +289,7 @@ def init():
     pk_pass_secret = args.pk_pass_secret
     pubk_secret = args.pubk_secret
 
-    
+
     # Preprocess params
     global vad_threshold, min_speech_duration_ms, min_silence_duration_ms, demucs_model, output_prep_path
     vad_threshold = args.vad_threshold
@@ -313,7 +315,11 @@ def init():
      read_audio,
      VADIterator,
      collect_chunks) = utils
-    
+
+    # Instantiate credential manager
+    global cm
+    cm = CredentialManager(keyvault_name, secret_tenant_sp, secret_client_sp, secret_sp, pubk_secret, pk_secret, pk_pass_secret)
+
     # MongoDB client
     credential = DefaultAzureCredential()
     credential.get_token("https://management.azure.com/.default")
@@ -338,9 +344,6 @@ def init():
 
 
 def run(mini_batch):
-
-    # Instantiate credential manager
-    cm = CredentialManager(keyvault_name, secret_tenant_sp, secret_client_sp, secret_sp)
 
     for elem in mini_batch:
         # Read file
@@ -368,7 +371,7 @@ def run(mini_batch):
         if not os.path.isfile(str(pathdir)): raise ValueError(f"Filepath does not exist.")
         if ext_enc in ['.pgp', '.enc']:
             log.info(f"Decrypting and preprocessing:")
-            cm.decrypt(input_folder, './decrypted_files', [f"{fn}{ext_file}{ext_enc}"], pk_secret, pk_pass_secret)
+            cm.decrypt(input_folder, './decrypted_files', [f"{fn}{ext_file}{ext_enc}"])
             preprocess_audio('./decrypted_files', './prep_audios', f"{fn}{ext_file}")
         else:
             log.info(f"Preprocessing:")
@@ -397,7 +400,7 @@ def run(mini_batch):
                     indent=4,
                     ensure_ascii=False
                 )
-            cm.encrypt('./decrypted_files', output_prep_path, [f"{fn}_prep.json"], pubk_secret, True)
+            cm.encrypt('./decrypted_files', output_prep_path, [f"{fn}_prep.json"], True)
             continue
         save_audio(f"./prep_audios/{fn}_vad.wav",
                  collect_chunks(speech_timestamps, wav), sampling_rate=16000)
@@ -427,7 +430,7 @@ def run(mini_batch):
         
         # Encrypt output
         log.info(f"Encrypt audio output:")
-        cm.encrypt('./trimmed_audios', output_prep_path, [f"{fn}.wav"], pubk_secret, True)
+        cm.encrypt('./trimmed_audios', output_prep_path, [f"{fn}.wav"], True)
 
         prep_time = time.time() - prep_time
         log.info(f"\tRutime: {prep_time}")
@@ -446,7 +449,7 @@ def run(mini_batch):
                 indent=4,
                 ensure_ascii=False
             )
-        cm.encrypt('./decrypted_files', output_prep_path, [f"{fn}_prep.json"], pubk_secret, True)
+        cm.encrypt('./decrypted_files', output_prep_path, [f"{fn}_prep.json"], True)
         
         # Cleanup resources
         delete_files_in_directory_and_subdirectories('./decrypted_files')
@@ -454,3 +457,8 @@ def run(mini_batch):
         delete_files_in_directory_and_subdirectories('./trimmed_audios')
 
     return mini_batch
+
+
+def shutdown():
+    cm.enable_secret(cm.sp_login(), pk_secret, False)
+    cm.enable_secret(cm.sp_login(), pk_pass_secret, False)
