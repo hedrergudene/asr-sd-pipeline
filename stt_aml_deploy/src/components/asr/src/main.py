@@ -167,13 +167,22 @@ class CredentialManager():
             secret_name:str=None,
             enable:bool=False
     ) -> None:
+        # Get the right login for the operation
         if self.login!='sp':
             secret_client = self.sp_login()
-        if secret_client.get_secret(secret_name).properties.enabled!=enable:
-            secret_client.update_secret_properties(secret_name, enabled=enable)
-        else:
+        # Check secret current status
+        try:
+            secret_status = secret_client.get_secret(secret_name).properties.enabled
+        except:
+            secret_status = False
+        # Compare with input action
+        if secret_status==enable:
             s = 'enabled' if enable else 'disabled'
             log.info(f"Secret {secret_name} is already {s}.")
+        else:
+            s = 'enabled' if enable else 'disabled'
+            secret_client.update_secret_properties(secret_name, enabled=enable)
+            log.info(f"Secret {secret_name} is now {s}.")
     
 
     def fetch_secret(

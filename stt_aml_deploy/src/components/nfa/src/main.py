@@ -168,13 +168,22 @@ class CredentialManager():
             secret_name:str=None,
             enable:bool=False
     ) -> None:
+        # Get the right login for the operation
         if self.login!='sp':
             secret_client = self.sp_login()
-        if secret_client.get_secret(secret_name).properties.enabled!=enable:
-            secret_client.update_secret_properties(secret_name, enabled=enable)
-        else:
+        # Check secret current status
+        try:
+            secret_status = secret_client.get_secret(secret_name).properties.enabled
+        except:
+            secret_status = False
+        # Compare with input action
+        if secret_status==enable:
             s = 'enabled' if enable else 'disabled'
             log.info(f"Secret {secret_name} is already {s}.")
+        else:
+            s = 'enabled' if enable else 'disabled'
+            secret_client.update_secret_properties(secret_name, enabled=enable)
+            log.info(f"Secret {secret_name} is now {s}.")
     
 
     def fetch_secret(
@@ -399,10 +408,11 @@ def run(mini_batch):
         )
         align_time = time.time() - align_time
         # Check return code
-        if ((result.returncode!=0) & (asr_dct['segments'][0].get('words') is None)):
+        check_run = ((result.returncode==0) & (os.path.isfile(f"./nemo_nfa_output/ctm/segments/{fn}.ctm")) & (os.path.isfile(f"./nemo_nfa_output/ctm/words/{fn}.ctm")))
+        if ((not check_run) & (asr_dct['segments'][0].get('words') is None)):
             log.error(f"Alignment raised an exception and there are no timestamps available from ASR: {result.stderr}")
             raise RuntimeError(f"Alignment raised an exception and there are no timestamps available from ASR: {result.stderr}")
-        elif ((result.returncode!=0) & (asr_dct['segments'][0].get('words') is not None)):
+        elif ((not check_run) & (asr_dct['segments'][0].get('words') is not None)):
             log.warning(f"Alignment raised an exception; using ASR word-level timestamps: {result.stderr}")
             # Process output
             with open(f"./decrypted_files/{fn}_nfa.json", 'w', encoding='utf8') as f:
@@ -418,7 +428,7 @@ def run(mini_batch):
                     ensure_ascii=False
                 )
             cm.encrypt('./decrypted_files', output_fa_path, f"{fn}_nfa.json", True)
-        elif ((result.returncode==0) & (asr_dct['segments'][0].get('words') is None)):
+        elif ((check_run) & (asr_dct['segments'][0].get('words') is None)):
             log.info(f"Alignment run successfully. Including word-level timestamps.")
             # Update timestamps from both segment-level and word-level information
             segments = process_nfa_output(fn)
