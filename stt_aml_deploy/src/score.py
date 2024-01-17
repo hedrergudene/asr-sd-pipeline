@@ -47,28 +47,28 @@ def run(raw_data):
     In the example we extract the data from the json input, run an AzureML pipeline and return a dummy metadata.
     raw_data = {
         "azure":{
-            "cpu_cluster": "vmazmleu2iacgd01",
-            "gpu_cluster_t4": "vmazmleu2iacgd02",
-            "gpu_cluster_a100": "vmazmleu2iacgd03",
-            "project_name": "mysh",
-            "storage_id": "staceu2iacgsvlsd01",
-            "container_name": "iacgdata",
-            "input_path": "azureml://datastores/mysh/paths/desa/bcp/iacg_mysh/data/data_noestruct/audio/2023-12-15",
-            "output_path": "azureml://datastores/mysh/paths/desa/bcp/iacg_mysh/data/data_noestruct/transcript/2023-12-15"
+            "cpu_cluster": "XXXXXX",
+            "gpu_cluster_t4": "XXXXXX",
+            "gpu_cluster_a100": "XXXXXX",
+            "project_name": "XXXXXX",
+            "storage_id": "XXXXXX",
+            "container_name": "XXXXXX",
+            "input_path": "XXXXXX",
+            "output_path": "XXXXXX"
         },
         "keyvault": {
-            "name": "akvteu2iacgd01",
-            "secret_tenant_sp": "iacg-az-cdv-sp1-idtenant-ks",
-            "secret_client_sp": "iacg-az-cdv-sp1-idclient-ks",
-            "secret_sp": "iacg-az-cdv-sp1-client-ks",
-            "pk_secret": "private-key-pgp-poc",
-            "pk_pass_secret": "pgp-key-poc",
-            "pubk_secret": "public-key-pgp-poc"
+            "name": "XXXXXX",
+            "secret_tenant_sp": "XXXXXX",
+            "secret_client_sp": "XXXXXX",
+            "secret_sp": "XXXXXX",
+            "pk_secret": "XXXXXX",
+            "pk_pass_secret": "XXXXXX",
+            "pubk_secret": "XXXXXX"
         },
         "cosmosdb": {
-            "name": "iacg_nosql",
-            "collection": "stt_mysh",
-            "cs_secret": "codbeu2iacg01-connection-string",
+            "name": "XXXXXX",
+            "collection": "XXXXXX",
+            "cs_secret": "XXXXXX",
         }
         "preprocessing": {
             "vad_threshold": 0.75,
@@ -91,7 +91,9 @@ def run(raw_data):
         },
         "diarization": {
             "event_type": "telephonic",
-            "max_num_speakers": 3
+            "max_num_speakers": 3,
+            "min_window_length": 0.2,
+            "overlap_threshold": 0.8
         },
         "align": {
             "max_words_in_sentence": 60
@@ -214,11 +216,15 @@ def run(raw_data):
     if raw_data.get('diar') is None:
         raw_data['diar'] = {
             "event_type": "telephonic",
-            "max_num_speakers": 3
+            "max_num_speakers": 3,
+            "min_window_length": 0.2,
+            "overlap_threshold": 0.8
         }
     else:
         if (raw_data['diar'].get('event_type') is None): raw_data['diar']['event_type'] = "telephonic"
         if (raw_data['diar'].get('max_num_speakers') is None): raw_data['diar']['max_num_speakers'] = 3
+        if (raw_data['diar'].get('min_window_length') is None): raw_data['diar']['min_window_length'] = 0.2
+        if (raw_data['diar'].get('overlap_threshold') is None): raw_data['diar']['overlap_threshold'] = 0.8
     ## Sentence mapping (values are optional)
     if raw_data.get('align') is None:
         raw_data['align'] = {
@@ -477,7 +483,9 @@ def run(raw_data):
             pk_pass_secret=Input(type="string"),
             pubk_secret=Input(type="string"),
             event_type=Input(type="string"),
-            max_num_speakers=Input(type="integer")
+            max_num_speakers=Input(type="integer"),
+            min_window_length=Input(type="number"),
+            overlap_threshold=Input(type="number")
         ),
         outputs=dict(output_diar_path=Output(type=AssetTypes.URI_FOLDER)),
         input_data="${{inputs.input_asr_path}}",
@@ -492,7 +500,7 @@ def run(raw_data):
             timeout=raw_data['job']['timeout']
         ), 
         task=RunFunction(
-            code="./components/diar/src",
+            code="./src/components/diar/src",
             entry_script="main.py",
             environment=ml_client.environments.get(name="diar_env", version="1"),
             program_arguments="--input_audio_path ${{inputs.input_audio_path}} "
@@ -506,6 +514,8 @@ def run(raw_data):
                               "--pubk_secret ${{inputs.pubk_secret}} "
                               "--event_type ${{inputs.event_type}} "
                               "--max_num_speakers ${{inputs.max_num_speakers}} "
+                              "--min_window_length ${{inputs.min_window_length}} "
+                              "--overlap_threshold ${{inputs.overlap_threshold}} "
                               "--output_diar_path ${{outputs.output_diar_path}} "
                               f"--allowed_failed_percent {raw_data['job']['allowed_failed_percent']} "
                               f"--progress_update_timeout {raw_data['job']['progress_update_timeout']} "
@@ -673,7 +683,9 @@ def run(raw_data):
             pk_pass_secret=raw_data['keyvault']['pk_pass_secret'],
             pubk_secret=raw_data['keyvault']['pubk_secret'],
             event_type = raw_data['diarization']['event_type'],
-            max_num_speakers = raw_data['diarization']['max_num_speakers']
+            max_num_speakers = raw_data['diarization']['max_num_speakers'],
+            min_window_length = raw_data['diarization']['min_window_length'],
+            overlap_threshold = raw_data['diarization']['overlap_threshold']
         )
         diar_node.outputs.output_diar_path = output_dts
         diar_node.compute = raw_data['azure']['gpu_cluster_a100']

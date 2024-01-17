@@ -364,6 +364,7 @@ def run(mini_batch):
             segs = []
             for x in segments:
                 words = []
+                if len(x.words)==0: continue # So that global stats basen on word ts are not messed up
                 for word in x.words:
                     words.append(
                        {
@@ -376,7 +377,7 @@ def run(mini_batch):
                 s = {
                    'start':words[0]['start'],
                    'end':words[-1]['end'],
-                   'text':' '.join([w['text'] for w in words]),
+                   'text':' '.join([w['text'].strip() for w in words]),
                    'confidence': sum([w['confidence'] for w in words])/len([w['confidence'] for w in words])
                 }
                 s['words'] = words

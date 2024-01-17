@@ -286,6 +286,8 @@ def init():
     parser.add_argument("--pubk_secret", type=str)
     parser.add_argument("--event_type", type=str, default='telephonic')
     parser.add_argument("--max_num_speakers", type=int, default=3)
+    parser.add_argument("--min_window_length", type=float, default=0.2)
+    parser.add_argument("--overlap_threshold", type=float, default=0.8)
     parser.add_argument("--output_diar_path", type=str)
     args, _ = parser.parse_known_args()
 
@@ -324,10 +326,26 @@ def init():
         f.write(response.content)
 
     # Read NeMo MSDD configuration file
+    round_digits = lambda number, digits: int(number*10**digits)/10**digits
     msdd_cfg = OmegaConf.load(f'./input/diar_infer_{args.event_type}.yaml')
     msdd_cfg.diarizer.clustering.parameters.max_num_speakers = args.max_num_speakers
     msdd_cfg.diarizer.vad.external_vad_manifest='./input/asr_vad_manifest.json'
     msdd_cfg.diarizer.asr.parameters.asr_based_vad = True
+    msdd_cfg.diarizer.speaker_embeddings.parameters.window_length_in_sec = [
+        round_digits(8*args.min_window_length,2),
+        round_digits(5*args.min_window_length,2),
+        round_digits(3*args.min_window_length,2),
+        round_digits(2*args.min_window_length,2),
+        round_digits(args.min_window_length,2)
+    ]
+    msdd_cfg.diarizer.speaker_embeddings.parameters.shift_length_in_sec = [
+        round_digits(8*args.min_window_length/2,3),
+        round_digits(5*args.min_window_length/2,3),
+        round_digits(3*args.min_window_length/2,3),
+        round_digits(2*args.min_window_length/2,3),
+        round_digits(args.min_window_length/2,3)
+    ]
+    msdd_cfg.diarizer.msdd_model.parameters.sigmoid_threshold = [args.overlap_threshold]
     create_msdd_config(['sample_audio.wav']) # initialise msdd cfg
     # Initialize NeMo MSDD diarization model
     msdd_model = OfflineDiarWithASR(msdd_cfg.diarizer)

@@ -50,6 +50,8 @@ fa:
 diarization:
   event_type: 'telephonic' #could also be 'meeting'
   max_num_speakers: 3
+  min_window_length: 0.2
+  overlap_threshold: 0.8
 
 align:
   max_words_in_sentence: 60

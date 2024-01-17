@@ -279,7 +279,9 @@ def main(
             pk_pass_secret=Input(type="string"),
             pubk_secret=Input(type="string"),
             event_type=Input(type="string"),
-            max_num_speakers=Input(type="integer")
+            max_num_speakers=Input(type="integer"),
+            min_window_length=Input(type="number"),
+            overlap_threshold=Input(type="number")
         ),
         outputs=dict(output_diar_path=Output(type=AssetTypes.URI_FOLDER)),
         input_data="${{inputs.input_asr_path}}",
@@ -308,6 +310,8 @@ def main(
                               "--pubk_secret ${{inputs.pubk_secret}} "
                               "--event_type ${{inputs.event_type}} "
                               "--max_num_speakers ${{inputs.max_num_speakers}} "
+                              "--min_window_length ${{inputs.min_window_length}} "
+                              "--overlap_threshold ${{inputs.overlap_threshold}} "
                               "--output_diar_path ${{outputs.output_diar_path}} "
                               f"--allowed_failed_percent {config_dct['job']['allowed_failed_percent']} "
                               f"--progress_update_timeout {config_dct['job']['progress_update_timeout']} "
@@ -476,7 +480,9 @@ def main(
             pk_pass_secret=config_dct['keyvault']['pk_pass_secret'],
             pubk_secret=config_dct['keyvault']['pubk_secret'],
             event_type = config_dct['diarization']['event_type'],
-            max_num_speakers = config_dct['diarization']['max_num_speakers']
+            max_num_speakers = config_dct['diarization']['max_num_speakers'],
+            min_window_length = config_dct['diarization']['min_window_length'],
+            overlap_threshold = config_dct['diarization']['overlap_threshold']
         )
         diar_node.outputs.output_diar_path = output_dts
         diar_node.compute = config_dct['aml']['computing']['gpu_cluster_a100']
