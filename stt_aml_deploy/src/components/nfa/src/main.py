@@ -453,8 +453,11 @@ def run(mini_batch):
 
             # Keep confidence results from ASR
             for asr_seg, nfa_seg in zip(asr_dct['segments'], segments):
+                c = []
                 for asr_word, nfa_word in zip(asr_seg['words'], nfa_seg['words']):
                     nfa_word['confidence'] = asr_word['confidence']
+                    c.append(asr_word['confidence'])
+                nfa_seg['confidence'] = sum(c)/len(c)
 
             # Process output
             with open(f"./decrypted_files/{fn}_nfa.json", 'w', encoding='utf8') as f:

@@ -362,6 +362,8 @@ def run(mini_batch):
 
         if word_level_timestamps:
             segs = []
+            end_repl = lambda text: re.sub(r'\s([?.!"](?:\s|$))', r'\1', text)
+            start_repl = lambda text: re.sub(r'([¿¡"])\s+', r'\1', text)
             for x in segments:
                 words = []
                 if len(x.words)==0: continue # So that global stats basen on word ts are not messed up
@@ -377,13 +379,13 @@ def run(mini_batch):
                 s = {
                    'start':words[0]['start'],
                    'end':words[-1]['end'],
-                   'text':' '.join([w['text'].strip() for w in words]),
+                   'text':' '.join([end_repl(start_repl(w['text'].strip())) for w in words]),
                    'confidence': sum([w['confidence'] for w in words])/len([w['confidence'] for w in words])
                 }
                 s['words'] = words
                 segs.append(s)
         else:
-            segs = [{'start': x.start, 'end': x.end, 'text': x.text.strip()} for x in segments]
+            segs = [{'start': x.start, 'end': x.end, 'text': end_repl(start_repl(x.text.strip()))} for x in segments]
         transcription_time = time.time()-transcription_time
         log.info(f"\t\tTranscription time: {transcription_time}")
 
