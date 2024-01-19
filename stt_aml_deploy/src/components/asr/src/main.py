@@ -372,14 +372,14 @@ def run(mini_batch):
                        {
                           'start':word.start,
                           'end':word.end,
-                          'text':word.word.strip(),
+                          'text':end_repl(start_repl(word.word.strip())),
                           'confidence': word.probability
                        }
                     )
                 s = {
                    'start':words[0]['start'],
                    'end':words[-1]['end'],
-                   'text':' '.join([end_repl(start_repl(w['text'].strip())) for w in words]),
+                   'text':' '.join([w['text'] for w in words]),
                    'confidence': sum([w['confidence'] for w in words])/len([w['confidence'] for w in words])
                 }
                 s['words'] = words
