@@ -55,6 +55,8 @@ diarization:
 
 align:
   max_words_in_sentence: 60
+  ner_chunk_size: 50
+  ner_stride: 5
 
 job:
   instance_count: 2

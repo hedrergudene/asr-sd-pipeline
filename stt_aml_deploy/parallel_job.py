@@ -345,6 +345,8 @@ def main(
             cosmosdb_name=Input(type="string"),
             cosmosdb_collection=Input(type="string"),
             cosmosdb_cs_secret=Input(type="string"),
+            ner_chunk_size=Input(type="integer"),
+            ner_stride=Input(type="integer"),
             max_words_in_sentence=Input(type="integer")
         ),
         outputs=dict(output_sm_path=Output(type=AssetTypes.URI_FOLDER)),
@@ -375,6 +377,8 @@ def main(
                               "--cosmosdb_name ${{inputs.cosmosdb_name}} "
                               "--cosmosdb_collection ${{inputs.cosmosdb_collection}} "
                               "--cosmosdb_cs_secret ${{inputs.cosmosdb_cs_secret}} "
+                              "--ner_chunk_size ${{inputs.ner_chunk_size}} "
+                              "--ner_stride ${{inputs.ner_stride}} "
                               "--max_words_in_sentence ${{inputs.max_words_in_sentence}} "
                               "--output_sm_path ${{outputs.output_sm_path}} "
                               f"--allowed_failed_percent {config_dct['job']['allowed_failed_percent']} "
@@ -401,7 +405,7 @@ def main(
     )
 
     output_dts = Output(
-        path=config_dct['blob']['input_path'],
+        path=config_dct['blob']['output_path'],
         type=AssetTypes.URI_FOLDER,
         mode=InputOutputModes.RW_MOUNT
     )
@@ -501,6 +505,8 @@ def main(
             cosmosdb_name=config_dct['cosmosdb']['name'],
             cosmosdb_collection=config_dct['cosmosdb']['collection'],
             cosmosdb_cs_secret=config_dct['cosmosdb']['cs_secret'],
+            ner_chunk_size = config_dct['align']['ner_chunk_size'],
+            ner_stride = config_dct['align']['ner_stride'],
             max_words_in_sentence = config_dct['align']['max_words_in_sentence']
         )
         ma_node.outputs.output_sm_path = output_dts

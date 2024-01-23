@@ -244,16 +244,12 @@ class SpeechTimestampsMap:
 class PunctuationModel():
     def __init__(
             self,
-            model:str = "oliverguhr/fullstop-punctuation-multilang-large",
-            chunk_size:int = 50,
-            overlap:int = 5
+            model:str = "oliverguhr/fullstop-punctuation-multilang-large"
     ) -> None:        
         if torch.cuda.is_available():
             self.pipe = pipeline("ner",model, aggregation_strategy="none", device=0)
         else:
             self.pipe = pipeline("ner",model, aggregation_strategy="none")
-        self.chunk_size = chunk_size
-        self.overlap = overlap
 
     def preprocess(self,text):
         #remove markers except for markers in numbers 
@@ -271,29 +267,29 @@ class PunctuationModel():
         for i in range(0, len(lst), n-stride):
                 yield lst[i:i + n]
 
-    def predict(self,words):
-        if len(words) <= self.chunk_size:
-            self.overlap = 0
+    def predict(self,words, chunk_size=80, overlap=5):
+        if len(words) <= chunk_size:
+            overlap = 0
 
-        batches = list(self.overlap_chunks(words, self.chunk_size, self.overlap))
+        batches = list(self.overlap_chunks(words, chunk_size, overlap))
 
         # if the last batch is smaller than the overlap, 
         # we can just remove it
-        if len(batches[-1]) <= self.overlap:
+        if len(batches[-1]) <= overlap:
             batches.pop()
 
         tagged_words = []     
         for batch in batches:
             # use last batch completely
             if batch == batches[-1]: 
-                self.overlap = 0
+                overlap = 0
             text = " ".join(batch)
-            result = self.pipe(text)      
+            result = self.pipe(text)
             assert len(text) == result[-1]["end"], "chunk size too large, text got clipped"
                 
             char_index = 0
             result_index = 0
-            for word in batch[:len(batch)-self.overlap]:                
+            for word in batch[:len(batch)-overlap]:
                 char_index += len(word) + 1
                 # if any subtoken of an word is labled as sentence end
                 # we label the whole word as sentence end        
@@ -547,6 +543,8 @@ def init():
     parser.add_argument("--cosmosdb_name", type=str)
     parser.add_argument("--cosmosdb_collection", type=str)
     parser.add_argument("--cosmosdb_cs_secret", type=str)
+    parser.add_argument("--ner_chunk_size", type=int, default=80)
+    parser.add_argument("--ner_stride", type=int, default=5)
     parser.add_argument("--max_words_in_sentence", type=int, default=40)
     parser.add_argument("--output_sm_path", type=str)
     args, _ = parser.parse_known_args()
@@ -576,10 +574,12 @@ def init():
     Path(output_sm_path).mkdir(parents=True, exist_ok=True)
 
     # Punctuation model
-    global punct_model, ending_puncts, model_puncts
+    global punct_model, ending_puncts, model_puncts, ner_chunk_size, ner_stride
     punct_model = PunctuationModel(model="kredor/punctuate-all")
     ending_puncts = '.?!'
     model_puncts = ".,;:!?"
+    ner_chunk_size = args.ner_chunk_size
+    ner_stride = args.ner_stride
 
     # MongoDB client
     credential = DefaultAzureCredential()
@@ -662,7 +662,19 @@ def run(mini_batch):
         sm_time = time.time()
         wsm = get_words_speaker_mapping(asr_input, diar_input)
         words_list = list(map(lambda x: x["word"], wsm))
-        labled_words = punct_model.predict(words_list)
+        try:
+            labled_words = punct_model.predict(words_list, ner_chunk_size, ner_stride)
+        except:
+            log.warning(f"Raised error using chunk_size={ner_chunk_size}. Retrying with half chunk size.")
+            try:
+                labled_words = punct_model.predict(words_list, ner_chunk_size//2, ner_stride)
+            except:
+                log.warning(f"Raised error using chunk_size={ner_chunk_size//2}. Retrying with half chunk size.")
+                try:
+                    labled_words = punct_model.predict(words_list, ner_chunk_size//4, ner_stride)
+                except:
+                    log.warning(f"Raised error using chunk_size={ner_chunk_size//4}. Retrying with half chunk size.")
+                    labled_words = punct_model.predict(words_list, ner_chunk_size//8, ner_stride)
         # Acronyms handling
         is_acronym = lambda x: re.fullmatch(r"\b(?:[a-zA-Z]\.){2,}", x)
         for word_dict, labeled_tuple in zip(wsm, labled_words):

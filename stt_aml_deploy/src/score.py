@@ -96,6 +96,8 @@ def run(raw_data):
             "overlap_threshold": 0.8
         },
         "align": {
+            "ner_chunk_size": 80,
+            "ner_stride": 5,
             "max_words_in_sentence": 60
         },
         "job": {
@@ -228,9 +230,13 @@ def run(raw_data):
     ## Sentence mapping (values are optional)
     if raw_data.get('align') is None:
         raw_data['align'] = {
+            "ner_chunk_size": 80,
+            "ner_stride": 5,
             "max_words_in_sentence": 60
         }
     else:
+        if (raw_data['align'].get('ner_chunk_size') is None): raw_data['align']['ner_chunk_size'] = 80
+        if (raw_data['align'].get('ner_stride') is None): raw_data['align']['ner_stride'] = 5
         if (raw_data['align'].get('max_words_in_sentence') is None): raw_data['align']['max_words_in_sentence'] = 60
     ## Job configuration (values are optional)
     if raw_data.get('job') is None:
@@ -500,7 +506,7 @@ def run(raw_data):
             timeout=raw_data['job']['timeout']
         ), 
         task=RunFunction(
-            code="./src/components/diar/src",
+            code="./components/diar/src",
             entry_script="main.py",
             environment=ml_client.environments.get(name="diar_env", version="1"),
             program_arguments="--input_audio_path ${{inputs.input_audio_path}} "
@@ -549,6 +555,8 @@ def run(raw_data):
             cosmosdb_name=Input(type="string"),
             cosmosdb_collection=Input(type="string"),
             cosmosdb_cs_secret=Input(type="string"),
+            ner_chunk_size=Input(type="integer"),
+            ner_stride=Input(type="integer"),
             max_words_in_sentence=Input(type="integer")
         ),
         outputs=dict(output_sm_path=Output(type=AssetTypes.URI_FOLDER)),
@@ -579,6 +587,8 @@ def run(raw_data):
                               "--cosmosdb_name ${{inputs.cosmosdb_name}} "
                               "--cosmosdb_collection ${{inputs.cosmosdb_collection}} "
                               "--cosmosdb_cs_secret ${{inputs.cosmosdb_cs_secret}} "
+                              "--ner_chunk_size ${{inputs.ner_chunk_size}} "
+                              "--ner_stride ${{inputs.ner_stride}} "
                               "--max_words_in_sentence ${{inputs.max_words_in_sentence}} "
                               "--output_sm_path ${{outputs.output_sm_path}} "
                               f"--allowed_failed_percent {raw_data['job']['allowed_failed_percent']} "
@@ -704,6 +714,8 @@ def run(raw_data):
             cosmosdb_name=raw_data['cosmosdb']['name'],
             cosmosdb_collection=raw_data['cosmosdb']['collection'],
             cosmosdb_cs_secret=raw_data['cosmosdb']['cs_secret'],
+            ner_chunk_size = raw_data['align']['ner_chunk_size'],
+            ner_stride = raw_data['align']['ner_stride'],
             max_words_in_sentence = raw_data['align']['max_words_in_sentence']
         )
         ma_node.outputs.output_sm_path = output_dts
