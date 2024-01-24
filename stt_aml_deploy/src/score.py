@@ -230,12 +230,12 @@ def run(raw_data):
     ## Sentence mapping (values are optional)
     if raw_data.get('align') is None:
         raw_data['align'] = {
-            "ner_chunk_size": 80,
+            "ner_chunk_size": 40,
             "ner_stride": 5,
             "max_words_in_sentence": 60
         }
     else:
-        if (raw_data['align'].get('ner_chunk_size') is None): raw_data['align']['ner_chunk_size'] = 80
+        if (raw_data['align'].get('ner_chunk_size') is None): raw_data['align']['ner_chunk_size'] = 40
         if (raw_data['align'].get('ner_stride') is None): raw_data['align']['ner_stride'] = 5
         if (raw_data['align'].get('max_words_in_sentence') is None): raw_data['align']['max_words_in_sentence'] = 60
     ## Job configuration (values are optional)
@@ -243,7 +243,7 @@ def run(raw_data):
         raw_data['job'] = {
             "instance_count": 2,
             "max_concurrency_per_instance": 1,
-            "mini_batch_size": "1",
+            "mini_batch_size": "16",
             "mini_batch_error_threshold": 1,
             "error_threshold": 1,
             "max_retries": 2,
@@ -257,7 +257,7 @@ def run(raw_data):
     else:
         if (raw_data['job'].get('instance_count') is None): raw_data['job']['instance_count'] = 2
         if (raw_data['job'].get('max_concurrency_per_instance') is None): raw_data['job']['max_concurrency_per_instance'] = 1
-        if (raw_data['job'].get('mini_batch_size') is None): raw_data['job']['mini_batch_size'] = "1"
+        if (raw_data['job'].get('mini_batch_size') is None): raw_data['job']['mini_batch_size'] = "16"
         if (raw_data['job'].get('mini_batch_error_threshold') is None): raw_data['job']['mini_batch_error_threshold'] = 1
         if (raw_data['job'].get('error_threshold') is None): raw_data['job']['error_threshold'] = 1
         if (raw_data['job'].get('max_retries') is None): raw_data['job']['max_retries'] = 2
