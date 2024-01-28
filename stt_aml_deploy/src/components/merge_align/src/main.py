@@ -501,6 +501,54 @@ class CredentialManager():
         return folder_path, fn, ext
 
 
+# Helper function to wrap predict logic
+def inference_punct(
+        asr_ip:Dict,
+        diar_ip:Dict,
+        ncs:int=None,
+        ns:int=None,
+        mws:int=None,
+        ep:str='.?!'
+):
+    wsm = get_words_speaker_mapping(asr_ip, diar_ip)
+    words_list = list(map(lambda x: x["word"], wsm))
+    try:
+        labled_words = punct_model.predict(words_list, ncs, ns)
+    except:
+        log.warning(f"Raised error using chunk_size={ncs}. Retrying with half chunk size.")
+        try:
+            labled_words = punct_model.predict(words_list, ncs//2, ns)
+        except:
+            log.warning(f"Raised error using chunk_size={ncs//2}. Retrying with half chunk size.")
+            labled_words = punct_model.predict(words_list, ncs//4, ns)
+    # Acronyms handling
+    is_acronym = lambda x: re.fullmatch(r"\b(?:[a-zA-Z]\.){2,}", x)
+    for word_dict, labeled_tuple in zip(wsm, labled_words):
+        word = word_dict["word"]
+        if (
+            word
+            and labeled_tuple[1] in ep
+            and (word[-1] not in model_puncts or is_acronym(word))
+        ):
+            word += labeled_tuple[1]
+            if word.endswith(".."):
+                word = word.rstrip(".")
+            word_dict["word"] = word
+    try:
+        wsm_final = get_realigned_ws_mapping_with_punctuation(wsm, mws, ep)
+    except:
+        mws = max(mws-10,mws//2)
+        log.warning(f"Raised error during punctuation alignment. Retrying with max_word_sentence={mws}.")
+        try:
+            wsm_final = get_realigned_ws_mapping_with_punctuation(wsm, mws, ep)
+        except:
+            mws = max(mws-10,mws//2)
+            log.warning(f"Raised error during punctuation alignment. Retrying with max_word_sentence={mws}.")
+            wsm_final = get_realigned_ws_mapping_with_punctuation(wsm, mws, ep)
+    ssm = get_sentences_speaker_mapping(wsm_final, diar_ip)
+    return ssm
+
+
 # Helper function to cleanup audios directory
 def delete_files_in_directory_and_subdirectories(directory_path):
    try:
@@ -660,36 +708,47 @@ def run(mini_batch):
 
         # Get labels for each piece of text from ASR
         sm_time = time.time()
-        wsm = get_words_speaker_mapping(asr_input, diar_input)
-        words_list = list(map(lambda x: x["word"], wsm))
         try:
-            labled_words = punct_model.predict(words_list, ner_chunk_size, ner_stride)
+            ssm = inference_punct(
+                asr_input,
+                diar_input,
+                ner_chunk_size,
+                ner_stride,
+                max_words_in_sentence,
+                ending_puncts
+            )
         except:
             log.warning(f"Raised error using chunk_size={ner_chunk_size}. Retrying with half chunk size.")
             try:
-                labled_words = punct_model.predict(words_list, ner_chunk_size//2, ner_stride)
+                ssm = inference_punct(
+                    asr_input,
+                    diar_input,
+                    ner_chunk_size//2,
+                    ner_stride,
+                    max_words_in_sentence,
+                    ending_puncts
+                )
             except:
                 log.warning(f"Raised error using chunk_size={ner_chunk_size//2}. Retrying with half chunk size.")
                 try:
-                    labled_words = punct_model.predict(words_list, ner_chunk_size//4, ner_stride)
+                    ssm = inference_punct(
+                        asr_input,
+                        diar_input,
+                        ner_chunk_size//4,
+                        ner_stride,
+                        max_words_in_sentence,
+                        ending_puncts
+                    )
                 except:
                     log.warning(f"Raised error using chunk_size={ner_chunk_size//4}. Retrying with half chunk size.")
-                    labled_words = punct_model.predict(words_list, ner_chunk_size//8, ner_stride)
-        # Acronyms handling
-        is_acronym = lambda x: re.fullmatch(r"\b(?:[a-zA-Z]\.){2,}", x)
-        for word_dict, labeled_tuple in zip(wsm, labled_words):
-            word = word_dict["word"]
-            if (
-                word
-                and labeled_tuple[1] in ending_puncts
-                and (word[-1] not in model_puncts or is_acronym(word))
-            ):
-                word += labeled_tuple[1]
-                if word.endswith(".."):
-                    word = word.rstrip(".")
-                word_dict["word"] = word
-        wsm_final = get_realigned_ws_mapping_with_punctuation(wsm, max_words_in_sentence, ending_puncts)
-        ssm = get_sentences_speaker_mapping(wsm_final, diar_input)
+                    ssm = inference_punct(
+                        asr_input,
+                        diar_input,
+                        ner_chunk_size//8,
+                        ner_stride,
+                        max_words_in_sentence,
+                        ending_puncts
+                    )
         sm_time = time.time() - sm_time
         log.info(f"\tSentence-mapping time: {sm_time}")
 
