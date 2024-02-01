@@ -332,15 +332,15 @@ def init():
     msdd_cfg.diarizer.vad.external_vad_manifest='./input/asr_vad_manifest.json'
     msdd_cfg.diarizer.asr.parameters.asr_based_vad = True
     msdd_cfg.diarizer.speaker_embeddings.parameters.window_length_in_sec = [
-        round_digits(8*args.min_window_length,2),
-        round_digits(5*args.min_window_length,2),
+        round_digits(6*args.min_window_length,2),
+        round_digits(4*args.min_window_length,2),
         round_digits(3*args.min_window_length,2),
         round_digits(2*args.min_window_length,2),
         round_digits(args.min_window_length,2)
     ]
     msdd_cfg.diarizer.speaker_embeddings.parameters.shift_length_in_sec = [
-        round_digits(8*args.min_window_length/2,3),
-        round_digits(5*args.min_window_length/2,3),
+        round_digits(6*args.min_window_length/2,3),
+        round_digits(4*args.min_window_length/2,3),
         round_digits(3*args.min_window_length/2,3),
         round_digits(2*args.min_window_length/2,3),
         round_digits(args.min_window_length/2,3)
