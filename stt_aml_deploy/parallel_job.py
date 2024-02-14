@@ -65,7 +65,7 @@ def main(
         aml_cpu_cluster = config_dct['aml']['computing']['cpu_cluster'],
         aml_t4_cluster = config_dct['aml']['computing']['gpu_cluster_t4'],
         aml_a100_cluster = config_dct['aml']['computing']['gpu_cluster_a100'],
-        keyvault_name = config_dct['keyvault']['keyvault_name'],
+        keyvault_name = config_dct['keyvault']['name'],
         secret_tenant_sp = config_dct['keyvault']['secret_tenant_sp'],
         secret_client_sp = config_dct['keyvault']['secret_client_sp'],
         secret_sp = config_dct['keyvault']['secret_sp'],
