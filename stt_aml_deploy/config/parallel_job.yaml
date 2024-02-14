@@ -59,15 +59,14 @@ align:
   ner_stride: 5
 
 job:
-  instance_count: 2
+  instance_count: 32
   max_concurrency_per_instance: 1
   mini_batch_size: "1"
   mini_batch_error_threshold: 1
   error_threshold: 1
-  max_retries: 2
-  timeout: 3600
+  max_retries: 1
+  timeout: 600
   allowed_failed_percent: 0
-  progress_update_timeout: 60000
-  task_overhead_timeout: 3600
-  first_task_creation_timeout: 60000
-  resource_monitor_interval: 0
+  task_overhead_timeout: 60
+  first_task_creation_timeout: 600
+  resource_monitor_interval: 180
