@@ -3,9 +3,9 @@ import yaml
 import sys
 import os
 import logging as log
+from azure.ai.ml import MLClient, load_component
+from azure.ai.ml.entities import BatchEndpoint, PipelineComponentBatchDeployment
 from azure.identity import DefaultAzureCredential
-from azure.ai.ml import MLClient
-from azure.ai.ml.entities import Environment, BuildContext
 import fire
 
 # Setup logs
@@ -44,15 +44,28 @@ def main(
         workspace_name=config_dct['azure']['aml_workspace_name'],
     )
 
-    # Build environments for AML pipeline
-    for comp_name in os.listdir('./components'):
-        log.info(f"Building environment {comp_name}:")
-        env_docker_context = Environment(
-            build=BuildContext(path=f"../components/{comp_name}/docker"),
-            name=f"{comp_name}_env",
-            description=f"Environment for {comp_name} component of speech to text solution.",
-        )
-        ml_client.environments.create_or_update(env_docker_context)
+    # Define the endpoint
+    log.info("Define batch endpoint:")
+    endpoint = BatchEndpoint(
+        name=config_dct['endpoint']['name'],
+        description=config_dct['endpoint']['description']
+    )
+    ml_client.batch_endpoints.begin_create_or_update(endpoint).result()
+
+    # Load registered component
+    log.info("Load registered component:")
+    stt_batch = load_component(client=ml_client, name="stt", version="1")
+
+    # Deploy pipeline component
+    log.info("Deploy pipeline component:")
+    deployment = PipelineComponentBatchDeployment(
+        name=config_dct['deployment']['name'],
+        description=config_dct['deployment']['description'],
+        endpoint_name=endpoint.name,
+        component=stt_batch,
+        settings={"continue_on_step_failure": False, "default_compute": config_dct['deployment']['default_compute']},
+    )
+
 
 if __name__=="__main__":
     fire.Fire(main)

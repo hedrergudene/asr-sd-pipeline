@@ -5,25 +5,7 @@ azure:
 endpoint:
   name: 'stt-service'
   description: 'API to run a STT batch inference AzureML pipeline.'
-  auth_mode: 'key'
-  traffic:
-    blue: 100
-    green: 0
 deployment:
-  name: 'blue' # blue or green
-  instance_type: "Standard_DS1_v2"
-  instance_count: 1
-autoscale:
-  name: 'stt_autoscale'
-  capacity:
-    minimum: 2
-    maximum: 4
-  threshold:
-    cpu:
-      increase: 70 # %
-      decrease: 50 # %
-      cooldown: 3600 # seconds
-    latency:
-      increase: 1000 # miliseconds
-      decrease: None # miliseconds
-      cooldown: 3600 # seconds
+  name:
+  description:
+  default_compute: 'XXXXXX'
