@@ -318,14 +318,11 @@ def init():
 
     # Config files
     query_parameters = {"downloadformat": "yaml"}
-    response = requests.get('https://raw.githubusercontent.com/NVIDIA/NeMo/v1.22.0/examples/speaker_tasks/diarization/conf/inference/diar_infer_telephonic.yaml', params=query_parameters)
+    response = requests.get('https://raw.githubusercontent.com/hedrergudene/asr-sd-pipeline/41ea72a4efde3ce4c20bf7e78f135684dd4a0b55/stt_aml_deploy/components/diar/src/input/diar_infer_telephonic.yaml', params=query_parameters)
     with open("./input/diar_infer_telephonic.yaml", mode="wb") as f:
         f.write(response.content)
-    response = requests.get('https://raw.githubusercontent.com/NVIDIA/NeMo/v1.22.0/examples/speaker_tasks/diarization/conf/inference/diar_infer_meeting.yaml', params=query_parameters)
+    response = requests.get('https://raw.githubusercontent.com/hedrergudene/asr-sd-pipeline/41ea72a4efde3ce4c20bf7e78f135684dd4a0b55/stt_aml_deploy/components/diar/src/input/diar_infer_meeting.yaml', params=query_parameters)
     with open("./input/diar_infer_meeting.yaml", mode="wb") as f:
-        f.write(response.content)
-    response = requests.get('https://raw.githubusercontent.com/NVIDIA/NeMo/v1.22.0/examples/speaker_tasks/diarization/conf/inference/diar_infer_general.yaml', params=query_parameters)
-    with open("./input/diar_infer_general.yaml", mode="wb") as f:
         f.write(response.content)
 
     # Read NeMo MSDD configuration file
