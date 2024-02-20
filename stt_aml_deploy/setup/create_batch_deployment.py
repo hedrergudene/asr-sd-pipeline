@@ -19,7 +19,7 @@ root.addHandler(handler)
 
 # Main method. Fire automatically allign method arguments with parse commands from console
 def main(
-    config_path:str='./config/online_endpoint.yaml'
+    config_path:str='./config/batch_endpoint.yaml'
 ):
 
     # Get credential token
@@ -65,6 +65,12 @@ def main(
         component=stt_batch,
         settings={"continue_on_step_failure": False, "default_compute": config_dct['deployment']['default_compute']},
     )
+    ml_client.batch_deployments.begin_create_or_update(deployment).result()
+
+    # Set as default one
+    endpoint = ml_client.batch_endpoints.get(config_dct['endpoint']['name'])
+    endpoint.defaults.deployment_name = deployment.name
+    ml_client.batch_endpoints.begin_create_or_update(endpoint).result()
 
 
 if __name__=="__main__":

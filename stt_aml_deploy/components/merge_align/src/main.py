@@ -244,7 +244,7 @@ class SpeechTimestampsMap:
 class PunctuationModel():
     def __init__(
             self,
-            model:str = "oliverguhr/fullstop-punctuation-multilang-large"
+            model:str ="kredor/punctuate-all"
     ) -> None:        
         if torch.cuda.is_available():
             self.pipe = pipeline("ner",model, aggregation_strategy="none", device=0)
@@ -503,24 +503,26 @@ class CredentialManager():
 
 # Helper function to wrap predict logic
 def inference_punct(
+        model:PunctuationModel,
         asr_ip:Dict,
         diar_ip:Dict,
         ncs:int=None,
         ns:int=None,
         mws:int=None,
-        ep:str='.?!'
+        ep:str=".?!",
+        mp:str=".,;:!?"
 ):
     wsm = get_words_speaker_mapping(asr_ip, diar_ip)
     words_list = list(map(lambda x: x["word"], wsm))
     try:
-        labled_words = punct_model.predict(words_list, ncs, ns)
+        labled_words = model.predict(words_list, ncs, ns)
     except:
         log.warning(f"Raised error using chunk_size={ncs}. Retrying with half chunk size.")
         try:
-            labled_words = punct_model.predict(words_list, ncs//2, ns)
+            labled_words = model.predict(words_list, ncs//2, ns)
         except:
             log.warning(f"Raised error using chunk_size={ncs//2}. Retrying with half chunk size.")
-            labled_words = punct_model.predict(words_list, ncs//4, ns)
+            labled_words = model.predict(words_list, ncs//4, ns)
     # Acronyms handling
     is_acronym = lambda x: re.fullmatch(r"\b(?:[a-zA-Z]\.){2,}", x)
     for word_dict, labeled_tuple in zip(wsm, labled_words):
@@ -528,7 +530,7 @@ def inference_punct(
         if (
             word
             and labeled_tuple[1] in ep
-            and (word[-1] not in model_puncts or is_acronym(word))
+            and (word[-1] not in mp or is_acronym(word))
         ):
             word += labeled_tuple[1]
             if word.endswith(".."):
@@ -623,9 +625,7 @@ def init():
 
     # Punctuation model
     global punct_model, ending_puncts, model_puncts, ner_chunk_size, ner_stride
-    punct_model = PunctuationModel(model="kredor/punctuate-all")
-    ending_puncts = '.?!'
-    model_puncts = ".,;:!?"
+    punct_model = PunctuationModel()
     ner_chunk_size = args.ner_chunk_size
     ner_stride = args.ner_stride
 
@@ -708,47 +708,13 @@ def run(mini_batch):
 
         # Get labels for each piece of text from ASR
         sm_time = time.time()
-        try:
-            ssm = inference_punct(
-                asr_input,
-                diar_input,
-                ner_chunk_size,
-                ner_stride,
-                max_words_in_sentence,
-                ending_puncts
-            )
-        except:
-            log.warning(f"Raised error using chunk_size={ner_chunk_size}. Retrying with half chunk size.")
-            try:
-                ssm = inference_punct(
-                    asr_input,
-                    diar_input,
-                    ner_chunk_size//2,
-                    ner_stride,
-                    max_words_in_sentence,
-                    ending_puncts
-                )
-            except:
-                log.warning(f"Raised error using chunk_size={ner_chunk_size//2}. Retrying with half chunk size.")
-                try:
-                    ssm = inference_punct(
-                        asr_input,
-                        diar_input,
-                        ner_chunk_size//4,
-                        ner_stride,
-                        max_words_in_sentence,
-                        ending_puncts
-                    )
-                except:
-                    log.warning(f"Raised error using chunk_size={ner_chunk_size//4}. Retrying with half chunk size.")
-                    ssm = inference_punct(
-                        asr_input,
-                        diar_input,
-                        ner_chunk_size//8,
-                        ner_stride,
-                        max_words_in_sentence,
-                        ending_puncts
-                    )
+        ssm = inference_punct(
+            asr_input,
+            diar_input,
+            ner_chunk_size,
+            ner_stride,
+            max_words_in_sentence
+        )
         sm_time = time.time() - sm_time
         log.info(f"\tSentence-mapping time: {sm_time}")
 
