@@ -121,11 +121,9 @@ def main(
     #
 
 
-    @pipeline()
+    @pipeline(default_compute=config_dct['aml']['computing']['gpu_cluster_t4'])
     def prep(
         input_dts:Input(type=AssetTypes.URI_FOLDER, mode=InputOutputModes.RO_MOUNT),
-        output_dts:Input(type='string'),
-        compute_cluster:Input(type="string"),
         keyvault_name:Input(type="string"),
         secret_tenant_sp:Input(type="string"),
         secret_client_sp:Input(type="string"),
@@ -160,12 +158,6 @@ def main(
             min_silence_duration_ms=min_silence_duration_ms,
             demucs_model=demucs_model
         )
-        prep_node.outputs.output_prep_path = Output(
-            path=output_dts,
-            type=AssetTypes.URI_FOLDER,
-            mode=InputOutputModes.RW_MOUNT
-            )
-        prep_node.compute = compute_cluster
 
         return {'output_dts': prep_node.outputs.output_prep_path}
 

@@ -117,11 +117,9 @@ def main(
     # Create pipeline
     #
 
-    @pipeline()
+    @pipeline(default_compute=config_dct['aml']['computing']['gpu_cluster_t4'])
     def asr(
         input_dts:Input(type=AssetTypes.URI_FOLDER, mode=InputOutputModes.RO_MOUNT),
-        output_dts:Input(type='string'),
-        compute_cluster:Input(type="string"),
         keyvault_name:Input(type="string"),
         secret_tenant_sp:Input(type="string"),
         secret_client_sp:Input(type="string"),
@@ -155,12 +153,6 @@ def main(
             compute_type = compute_type,
             language_code = language_code
         )
-        asr_node.outputs.output_asr_path = Output(
-            path=output_dts,
-            type=AssetTypes.URI_FOLDER,
-            mode=InputOutputModes.RW_MOUNT
-            )
-        asr_node.compute = compute_cluster
 
         return {'output_dts': asr_node.outputs.output_asr_path}
 

@@ -109,12 +109,10 @@ def main(
     # Create pipeline
     #
 
-    @pipeline()
+    @pipeline(default_compute=config_dct['aml']['computing']['gpu_cluster_t4'])
     def nfa(
         input_dts:Input(type=AssetTypes.URI_FOLDER, mode=InputOutputModes.RO_MOUNT),
         input_asr:Input(type=AssetTypes.URI_FOLDER, mode=InputOutputModes.RO_MOUNT),
-        output_dts:Input(type='string'),
-        compute_cluster:Input(type="string"),
         keyvault_name:Input(type="string"),
         secret_tenant_sp:Input(type="string"),
         secret_client_sp:Input(type="string"),
@@ -139,12 +137,6 @@ def main(
             nfa_model_name=model_name,
             batch_size=batch_size
         )
-        nfa_node.outputs.output_fa_path = Output(
-            path=output_dts,
-            type=AssetTypes.URI_FOLDER,
-            mode=InputOutputModes.RW_MOUNT
-            )
-        nfa_node.compute = compute_cluster
 
         return {'output_dts': nfa_node.outputs.output_fa_path}
 

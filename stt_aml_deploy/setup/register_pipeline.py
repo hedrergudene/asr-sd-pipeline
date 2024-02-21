@@ -3,7 +3,7 @@ import yaml
 import sys
 import logging as log
 from azure.identity import DefaultAzureCredential
-from azure.ai.ml import MLClient, Input, load_component
+from azure.ai.ml import MLClient, Input, Output, load_component
 from azure.ai.ml.dsl import pipeline
 from azure.ai.ml.constants import AssetTypes, InputOutputModes
 import fire
@@ -103,7 +103,6 @@ def main(
         # Preprocessing
         prep_node = prep_comp(
             input_dts=input_dts,
-            output_dts=output_dts,
             keyvault_name=keyvault_name,
             secret_tenant_sp=secret_tenant_sp,
             secret_client_sp=secret_client_sp,
@@ -117,14 +116,18 @@ def main(
             vad_threshold=vad_threshold,
             min_speech_duration_ms=min_speech_duration_ms,
             min_silence_duration_ms=min_silence_duration_ms,
-            demucs_model=demucs_model,
-            compute_cluster=aml_t4_cluster
+            demucs_model=demucs_model
         )
+        prep_node.outputs.output_dts = Output(
+            path=output_dts,
+            type=AssetTypes.URI_FOLDER,
+            mode=InputOutputModes.RW_MOUNT
+            )
+        prep_node.compute = aml_t4_cluster
 
         # ASR
         asr_node = asr_comp(
             input_dts=prep_node.outputs.output_dts,
-            output_dts=output_dts,
             keyvault_name=keyvault_name,
             secret_tenant_sp=secret_tenant_sp,
             secret_client_sp=secret_client_sp,
@@ -138,15 +141,19 @@ def main(
             word_level_timestamps=word_level_timestamps,
             condition_on_previous_text=condition_on_previous_text,
             compute_type=asr_compute_type,
-            language_code=asr_language_code,
-            compute_cluster=aml_t4_cluster
+            language_code=asr_language_code
         )
+        asr_node.outputs.output_dts = Output(
+            path=output_dts,
+            type=AssetTypes.URI_FOLDER,
+            mode=InputOutputModes.RW_MOUNT
+            )
+        asr_node.compute = aml_t4_cluster
 
         # NFA
         nfa_node = nfa_comp(
             input_dts=prep_node.outputs.output_dts,
             input_asr=asr_node.outputs.output_dts,
-            output_dts=output_dts,
             keyvault_name=keyvault_name,
             secret_tenant_sp=secret_tenant_sp,
             secret_client_sp=secret_client_sp,
@@ -155,15 +162,19 @@ def main(
             pk_pass_secret=pk_pass_secret,
             pubk_secret=pubk_secret,
             model_name=nfa_model_name,
-            batch_size=nfa_batch_size,
-            compute_cluster=aml_t4_cluster
+            batch_size=nfa_batch_size
         )
+        nfa_node.outputs.output_dts = Output(
+            path=output_dts,
+            type=AssetTypes.URI_FOLDER,
+            mode=InputOutputModes.RW_MOUNT
+            )
+        nfa_node.compute = aml_t4_cluster
 
         # Diarization
         diar_node = diar_comp(
             input_dts=prep_node.outputs.output_dts,
             input_asr=nfa_node.outputs.output_dts,
-            output_dts=output_dts,
             keyvault_name=keyvault_name,
             secret_tenant_sp=secret_tenant_sp,
             secret_client_sp=secret_client_sp,
@@ -174,15 +185,19 @@ def main(
             event_type=diar_event_type,
             max_num_speakers=diar_max_num_speakers,
             min_window_length=diar_min_window_length,
-            overlap_threshold=diar_overlap_threshold,
-            compute_cluster=aml_a100_cluster
+            overlap_threshold=diar_overlap_threshold
         )
+        diar_node.outputs.output_dts = Output(
+            path=output_dts,
+            type=AssetTypes.URI_FOLDER,
+            mode=InputOutputModes.RW_MOUNT
+            )
+        diar_node.compute = aml_a100_cluster
 
         # Merge&Align
         ma_node = ma_comp(
             input_asr = nfa_node.outputs.output_dts,
             input_diar = diar_node.outputs.output_dts,
-            output_dts=output_dts,
             keyvault_name=keyvault_name,
             secret_tenant_sp=secret_tenant_sp,
             secret_client_sp=secret_client_sp,
@@ -195,9 +210,14 @@ def main(
             cosmosdb_cs_secret=cosmosdb_cs_secret,
             ner_chunk_size=ma_ner_chunk_size,
             ner_stride=ma_ner_stride,
-            max_words_in_sentence=ma_max_words_in_sentence,
-            compute_cluster=aml_t4_cluster
+            max_words_in_sentence=ma_max_words_in_sentence
         )
+        ma_node.outputs.output_dts = Output(
+            path=output_dts,
+            type=AssetTypes.URI_FOLDER,
+            mode=InputOutputModes.RW_MOUNT
+            )
+        ma_node.compute = aml_t4_cluster
 
         # Remove STT data
         rsttd_node = rsttd_comp(
