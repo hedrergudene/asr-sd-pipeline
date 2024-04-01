@@ -121,6 +121,8 @@ def main(
     def merge_align(
         input_asr:Input(type=AssetTypes.URI_FOLDER, mode=InputOutputModes.RO_MOUNT),
         input_diar:Input(type=AssetTypes.URI_FOLDER, mode=InputOutputModes.RO_MOUNT),
+        output_dts:Input(type="string"),
+        aml_compute:Input(type="string"),
         keyvault_name:Input(type="string"),
         secret_tenant_sp:Input(type="string"),
         secret_client_sp:Input(type="string"),
@@ -153,6 +155,12 @@ def main(
             ner_stride = ner_stride,
             max_words_in_sentence = max_words_in_sentence
         )
+        ma_node.outputs.output_sm_path = Output(
+            path=output_dts,
+            type=AssetTypes.URI_FOLDER,
+            mode=InputOutputModes.RW_MOUNT
+            )
+        ma_node.compute = aml_compute
 
         return {'output_dts': ma_node.outputs.output_sm_path}
 

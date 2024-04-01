@@ -103,6 +103,8 @@ def main(
         # Preprocessing
         prep_node = prep_comp(
             input_dts=input_dts,
+            output_dts=output_dts,
+            aml_compute=aml_t4_cluster,
             keyvault_name=keyvault_name,
             secret_tenant_sp=secret_tenant_sp,
             secret_client_sp=secret_client_sp,
@@ -128,6 +130,8 @@ def main(
         # ASR
         asr_node = asr_comp(
             input_dts=prep_node.outputs.output_dts,
+            output_dts=output_dts,
+            aml_compute=aml_t4_cluster,
             keyvault_name=keyvault_name,
             secret_tenant_sp=secret_tenant_sp,
             secret_client_sp=secret_client_sp,
@@ -154,6 +158,8 @@ def main(
         nfa_node = nfa_comp(
             input_dts=prep_node.outputs.output_dts,
             input_asr=asr_node.outputs.output_dts,
+            output_dts=output_dts,
+            aml_compute=aml_t4_cluster,
             keyvault_name=keyvault_name,
             secret_tenant_sp=secret_tenant_sp,
             secret_client_sp=secret_client_sp,
@@ -175,6 +181,8 @@ def main(
         diar_node = diar_comp(
             input_dts=prep_node.outputs.output_dts,
             input_asr=nfa_node.outputs.output_dts,
+            output_dts=output_dts,
+            aml_compute=aml_a100_cluster,
             keyvault_name=keyvault_name,
             secret_tenant_sp=secret_tenant_sp,
             secret_client_sp=secret_client_sp,
@@ -198,6 +206,8 @@ def main(
         ma_node = ma_comp(
             input_asr = nfa_node.outputs.output_dts,
             input_diar = diar_node.outputs.output_dts,
+            output_dts=output_dts,
+            aml_compute=aml_t4_cluster,
             keyvault_name=keyvault_name,
             secret_tenant_sp=secret_tenant_sp,
             secret_client_sp=secret_client_sp,

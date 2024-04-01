@@ -117,6 +117,8 @@ def main(
     def diar(
         input_dts:Input(type=AssetTypes.URI_FOLDER, mode=InputOutputModes.RO_MOUNT),
         input_asr:Input(type=AssetTypes.URI_FOLDER, mode=InputOutputModes.RO_MOUNT),
+        output_dts:Input(type="string"),
+        aml_compute:Input(type="string"),
         keyvault_name:Input(type="string"),
         secret_tenant_sp:Input(type="string"),
         secret_client_sp:Input(type="string"),
@@ -145,6 +147,12 @@ def main(
             min_window_length = min_window_length,
             overlap_threshold = overlap_threshold
         )
+        diar_node.outputs.output_diar_path = Output(
+            path=output_dts,
+            type=AssetTypes.URI_FOLDER,
+            mode=InputOutputModes.RW_MOUNT
+            )
+        diar_node.compute = aml_compute
 
         return {'output_dts': diar_node.outputs.output_diar_path}
 
