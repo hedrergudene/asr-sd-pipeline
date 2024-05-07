@@ -29,9 +29,9 @@ cosmosdb:
   cs_secret: 'XXXXXX'
 
 preprocessing:
-  vad_threshold: 0.75
+  vad_threshold: 0.8
   min_speech_duration_ms: 250
-  min_silence_duration_ms: 200
+  min_silence_duration_ms: 400
   demucs_model: 'htdemucs'
 
 asr:
@@ -59,14 +59,15 @@ align:
   ner_stride: 5
 
 job:
-  instance_count: 32
+  instance_count_large: 24
+  instance_count_small: 6
   max_concurrency_per_instance: 1
   mini_batch_size: "1"
   mini_batch_error_threshold: 1
   error_threshold: 1
-  max_retries: 1
-  timeout: 600
-  allowed_failed_percent: 0
-  task_overhead_timeout: 60
-  first_task_creation_timeout: 600
-  resource_monitor_interval: 180
+  max_retries: 2
+  timeout: 3000
+  allowed_failed_percent: 1
+  task_overhead_timeout: 300
+  first_task_creation_timeout: 1200
+  resource_monitor_interval: 300

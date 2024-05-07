@@ -73,7 +73,7 @@ def main(
         ),
         outputs=dict(output_asr_path=Output(type=AssetTypes.URI_FOLDER)),
         input_data="${{inputs.input_path}}",
-        instance_count=config_dct['job']['instance_count'],
+        instance_count=config_dct['job']['instance_count_large'],
         max_concurrency_per_instance=config_dct['job']['max_concurrency_per_instance'],
         mini_batch_size=config_dct['job']['mini_batch_size'],
         mini_batch_error_threshold=config_dct['job']['mini_batch_error_threshold'],
